@@ -3,6 +3,7 @@ package com.tripbler.backend.exchange.client;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +11,8 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.tripbler.backend.common.exception.ExchangeProviderException;
 import com.tripbler.backend.exchange.dto.ExchangeRateResponse;
@@ -25,14 +28,38 @@ public class FrankfurterExchangeRateClient
     private static final String FRANKFURTER_BASE_URL =
         "https://api.frankfurter.dev/v1";
 
+    private static final Duration CONNECT_TIMEOUT =
+    Duration.ofSeconds(3);
+
+    private static final Duration READ_TIMEOUT =
+    Duration.ofSeconds(5);
+
     private final RestClient restClient;
 
+    @Autowired
     public FrankfurterExchangeRateClient(
         RestClient.Builder restClientBuilder
     ) {
+        SimpleClientHttpRequestFactory requestFactory =
+            new SimpleClientHttpRequestFactory();
+
+        // 외부 환율 서버와 연결될 때까지 기다리는 최대 시간
+        requestFactory.setConnectTimeout(CONNECT_TIMEOUT);
+
+        // 연결 후 응답을 받을 때까지 기다리는 최대 시간
+        requestFactory.setReadTimeout(READ_TIMEOUT);
+
         this.restClient = restClientBuilder
             .baseUrl(FRANKFURTER_BASE_URL)
+            .requestFactory(requestFactory)
             .build();
+    }
+
+    // 단위 테스트에서 가짜 RestClient를 주입하기 위한 생성자
+    FrankfurterExchangeRateClient(
+        RestClient restClient
+    ) {
+        this.restClient = restClient;
     }
 
     @Override
