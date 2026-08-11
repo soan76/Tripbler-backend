@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -44,12 +45,42 @@ public class GlobalExceptionHandler {
             .body(response);
     }
 
+    // 1. 환율 @RequestParam + @Pattern 처리
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ResponseEntity<ErrorResponse> handleMethodValidationException(
         HandlerMethodValidationException exception,
         HttpServletRequest request
     ) {
         String message = exception
+            .getAllErrors()
+            .stream()
+            .map(error -> error.getDefaultMessage())
+            .filter(errorMessage -> errorMessage != null)
+            .distinct()
+            .collect(Collectors.joining(", "));
+
+        if (message.isBlank()) {
+            message = ErrorCode.INVALID_REQUEST.getMessage();
+        }
+
+        ErrorResponse response = ErrorResponse.of(
+            ErrorCode.INVALID_REQUEST,
+            message,
+            request.getRequestURI()
+        );
+
+        return ResponseEntity
+            .badRequest()
+            .body(response);
+    }
+    // 2. 번역 @Valid @RequestBody 처리
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(
+        MethodArgumentNotValidException exception,
+        HttpServletRequest request
+    ) {
+        String message = exception
+            .getBindingResult()
             .getAllErrors()
             .stream()
             .map(error -> error.getDefaultMessage())

@@ -28,6 +28,12 @@ public enum ErrorCode {
         "현재 환율 제공 서비스를 이용할 수 없습니다."
     ),
 
+    TRANSLATION_PROVIDER_UNAVAILABLE(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "TRANSLATION_PROVIDER_UNAVAILABLE",
+        "현재 번역 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해 주세요."
+    ),
+
     INTERNAL_SERVER_ERROR(
         HttpStatus.INTERNAL_SERVER_ERROR,
         "INTERNAL_SERVER_ERROR",

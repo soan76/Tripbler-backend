@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -124,6 +125,7 @@ class ExchangeControllerTest {
                     .param("base", "KOREA")
                     .param("targets", "USD,JPY")
             )
+            .andDo(print())
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
