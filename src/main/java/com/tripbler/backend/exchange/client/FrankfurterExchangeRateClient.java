@@ -170,6 +170,14 @@ public class FrankfurterExchangeRateClient
             throw exception;
 
         } catch (RestClientException exception) {
+            System.err.println(
+                "[Frankfurter 최신 환율 호출 실패] "
+                    + exception.getClass().getName()
+                    + " - "
+                    + exception.getMessage()
+            );
+
+            exception.printStackTrace();
             throw new ExchangeProviderException(exception);
         }
     }

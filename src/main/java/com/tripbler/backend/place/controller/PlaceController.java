@@ -2,7 +2,9 @@ package com.tripbler.backend.place.controller;
 
 import java.util.List;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,16 +47,20 @@ public class PlaceController {
     }
 
     @GetMapping("/nearest")
-    public PlaceResponse findNearestPlace(
-        @RequestParam("lat")
-        double latitude,
-
-        @RequestParam("lng")
-        double longitude
+    public ResponseEntity<PlaceResponse> getNearestPlace(
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam(defaultValue = "40") int radius
     ) {
-        return placeService.findNearestPlace(
-            latitude,
-            longitude
-        );
+        return placeService.findNearestPlace(lat, lng, radius)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    @GetMapping("/{placeId}")
+    public PlaceResponse getPlaceDetails(
+        @PathVariable String placeId
+    ) {
+        return placeService.getPlaceDetails(placeId);
     }
 }

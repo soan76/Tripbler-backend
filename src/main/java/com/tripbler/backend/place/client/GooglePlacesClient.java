@@ -177,13 +177,14 @@ public class GooglePlacesClient implements PlaceClient {
     @Override
     public PlaceResponse findNearestPlace(
         double latitude,
-        double longitude
+        double longitude,
+        int radius
     ) {
         List<PlaceResponse> places =
             searchNearbyWithoutType(
                 latitude,
                 longitude,
-                100
+                radius
             );
 
         if (places.isEmpty()) {
@@ -203,6 +204,55 @@ public class GooglePlacesClient implements PlaceClient {
                 )
             )
             .orElse(null);
+    }
+
+    @Override
+    public PlaceResponse getPlaceDetails(
+        String placeId
+    ) {
+        try {
+            GoogleNearbySearchResponse.GooglePlace place =
+                restClient
+                    .get()
+                    .uri(
+                        "/v1/places/{placeId}",
+                        placeId
+                    )
+                    .header(
+                        "X-Goog-Api-Key",
+                        apiKey
+                    )
+                    .header(
+                        "X-Goog-FieldMask",
+                        "id,displayName,location,"
+                            + "formattedAddress,rating,"
+                            + "primaryType,"
+                            + "currentOpeningHours.openNow"
+                    )
+                    .retrieve()
+                    .body(
+                        GoogleNearbySearchResponse
+                            .GooglePlace.class
+                    );
+
+            if (place == null) {
+                throw new PlacesProviderException(
+                    new IllegalStateException(
+                        "Google Place Details 응답이 비어 있습니다."
+                    )
+                );
+            }
+
+            return toPlaceResponse(place);
+
+        } catch (PlacesProviderException exception) {
+            throw exception;
+
+        } catch (RestClientException exception) {
+            throw new PlacesProviderException(
+                exception
+            );
+        }
     }
 
     private GoogleNearbySearchRequest createRequest(

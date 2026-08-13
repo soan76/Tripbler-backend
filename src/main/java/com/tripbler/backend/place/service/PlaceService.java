@@ -1,6 +1,7 @@
 package com.tripbler.backend.place.service;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
@@ -32,13 +33,23 @@ public class PlaceService {
         );
     }
 
-    public PlaceResponse findNearestPlace(
+    public Optional<PlaceResponse> findNearestPlace(
         double latitude,
-        double longitude
+        double longitude,
+        int radius
     ) {
-        return placeClient.findNearestPlace(
-            latitude,
-            longitude
+        PlaceResponse response = placeClient.findNearestPlace(
+                latitude,
+                longitude,
+                radius
         );
+
+        return Optional.ofNullable(response);
+    }
+
+    public PlaceResponse getPlaceDetails(
+        String placeId
+    ) {
+        return placeClient.getPlaceDetails(placeId);
     }
 }

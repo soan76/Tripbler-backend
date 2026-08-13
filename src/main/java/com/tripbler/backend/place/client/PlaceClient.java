@@ -15,6 +15,9 @@ public interface PlaceClient {
 
     PlaceResponse findNearestPlace(
         double latitude,
-        double longitude
+        double longitude,
+        int radius
     );
+
+    PlaceResponse getPlaceDetails(String placeId);
 }
