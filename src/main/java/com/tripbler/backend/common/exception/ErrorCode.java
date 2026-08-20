@@ -22,6 +22,12 @@ public enum ErrorCode {
         "조회할 대상 통화를 하나 이상 입력해야 합니다."
     ),
 
+    DUPLICATE_EMAIL(
+        HttpStatus.CONFLICT,
+        "DUPLICATE_EMAIL",
+        "이미 사용 중인 이메일입니다."
+    ),
+
     EXCHANGE_PROVIDER_UNAVAILABLE(
         HttpStatus.SERVICE_UNAVAILABLE,
         "EXCHANGE_PROVIDER_UNAVAILABLE",
