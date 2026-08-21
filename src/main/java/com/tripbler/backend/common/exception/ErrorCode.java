@@ -28,6 +28,12 @@ public enum ErrorCode {
         "이미 사용 중인 이메일입니다."
     ),
 
+    INVALID_CREDENTIALS(
+    HttpStatus.UNAUTHORIZED,
+        "INVALID_CREDENTIALS",
+        "이메일 또는 비밀번호가 올바르지 않습니다."
+    ),
+
     EXCHANGE_PROVIDER_UNAVAILABLE(
         HttpStatus.SERVICE_UNAVAILABLE,
         "EXCHANGE_PROVIDER_UNAVAILABLE",

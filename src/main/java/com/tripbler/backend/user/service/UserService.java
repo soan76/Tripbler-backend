@@ -6,6 +6,7 @@ import com.tripbler.backend.user.entity.User;
 import com.tripbler.backend.user.exception.DuplicateEmailException;
 import com.tripbler.backend.user.repository.UserRepository;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,9 +14,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(
+        UserRepository userRepository,
+        PasswordEncoder passwordEncoder
+    ) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional
@@ -25,7 +31,13 @@ public class UserService {
             throw new DuplicateEmailException();
         }
 
-        User user = new User(request.email());
+        String encodedPassword =
+            passwordEncoder.encode(request.password());
+
+        User user = new User(
+            request.email(),
+            encodedPassword
+        );
 
         User savedUser = userRepository.save(user);
 

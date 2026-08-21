@@ -22,7 +22,10 @@ class UserRepositoryTest {
     void saveAndFindByEmail() {
         // given
         String email = "test-" + UUID.randomUUID() + "@tripbler.com";
-        User user = new User(email);
+        User user = new User(
+            email,
+            "encoded-test-password"
+        );
 
         // when
         User savedUser = userRepository.save(user);
