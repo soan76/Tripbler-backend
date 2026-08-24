@@ -3,6 +3,8 @@ package com.tripbler.backend.user.controller;
 import com.tripbler.backend.user.dto.UserLoginRequest;
 import com.tripbler.backend.user.dto.UserLoginResponse;
 import com.tripbler.backend.user.service.AuthService;
+import com.tripbler.backend.user.dto.TokenRefreshRequest;
+import com.tripbler.backend.user.dto.TokenRefreshResponse;
 
 import jakarta.validation.Valid;
 
@@ -10,6 +12,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -26,5 +32,24 @@ public class AuthController {
         @Valid @RequestBody UserLoginRequest request
     ) {
         return authService.login(request);
+    }
+
+    @PostMapping("/refresh")
+    public TokenRefreshResponse refresh(
+        @Valid @RequestBody TokenRefreshRequest request
+    ) {
+        return authService.refresh(request);
+    }
+
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(
+        @AuthenticationPrincipal Jwt jwt
+    ) {
+        Long userId = Long.valueOf(
+            jwt.getSubject()
+        );
+
+        authService.logout(userId);
     }
 }

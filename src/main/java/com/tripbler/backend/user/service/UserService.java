@@ -4,7 +4,11 @@ import com.tripbler.backend.user.dto.UserCreateRequest;
 import com.tripbler.backend.user.dto.UserResponse;
 import com.tripbler.backend.user.entity.User;
 import com.tripbler.backend.user.exception.DuplicateEmailException;
+import com.tripbler.backend.user.exception.UserNotFoundException;
 import com.tripbler.backend.user.repository.UserRepository;
+import com.tripbler.backend.user.dto.UserUpdateRequest;
+import com.tripbler.backend.user.dto.UserPasswordChangeRequest;
+import com.tripbler.backend.user.exception.CurrentPasswordMismatchException;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -42,5 +46,63 @@ public class UserService {
         User savedUser = userRepository.save(user);
 
         return UserResponse.from(savedUser);
+    }
+
+    @Transactional(readOnly = true)
+    public UserResponse getUserById(Long userId) {
+
+        User user = userRepository.findById(userId)
+            .orElseThrow(UserNotFoundException::new);
+
+        return UserResponse.from(user);
+    }
+
+    @Transactional
+    public UserResponse updateUser(
+        Long userId,
+        UserUpdateRequest request
+    ) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(UserNotFoundException::new);
+
+        if (user.getEmail().equals(request.email())) {
+            return UserResponse.from(user);
+        }
+
+        userRepository.findByEmail(request.email())
+            .ifPresent(existingUser -> {
+                if (!existingUser.getId().equals(userId)) {
+                    throw new DuplicateEmailException();
+                }
+            });
+
+        user.changeEmail(request.email());
+
+        return UserResponse.from(user);
+    }
+
+    @Transactional
+    public void changePassword(
+        Long userId,
+        UserPasswordChangeRequest request
+    ) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(UserNotFoundException::new);
+
+        if (!passwordEncoder.matches(
+            request.currentPassword(),
+            user.getPassword()
+        )) {
+            throw new CurrentPasswordMismatchException();
+        }
+
+        String encodedNewPassword =
+            passwordEncoder.encode(
+                request.newPassword()
+            );
+
+        user.changePassword(
+            encodedNewPassword
+        );
     }
 }

@@ -47,8 +47,16 @@ public class User {
         return email;
     }
 
+    public void changeEmail(String email) {
+        this.email = email;
+    }
+
     public String getPassword() {
         return password;
+    }
+
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
     }
 
     public UserRole getRole() {

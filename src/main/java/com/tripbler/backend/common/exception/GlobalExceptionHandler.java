@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -164,6 +165,21 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
             .badRequest()
+            .body(response);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleHttpRequestMethodNotSupported(
+        HttpRequestMethodNotSupportedException exception,
+        HttpServletRequest request
+    ) {
+        ErrorResponse response = ErrorResponse.of(
+            ErrorCode.METHOD_NOT_ALLOWED,
+            request.getRequestURI()
+        );
+
+        return ResponseEntity
+            .status(ErrorCode.METHOD_NOT_ALLOWED.getStatus())
             .body(response);
     }
 }
