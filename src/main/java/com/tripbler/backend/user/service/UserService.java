@@ -9,6 +9,8 @@ import com.tripbler.backend.user.repository.UserRepository;
 import com.tripbler.backend.user.dto.UserUpdateRequest;
 import com.tripbler.backend.user.dto.UserPasswordChangeRequest;
 import com.tripbler.backend.user.exception.CurrentPasswordMismatchException;
+import com.tripbler.backend.user.exception.DuplicateLoginIdException;
+import com.tripbler.backend.user.dto.LoginIdAvailabilityResponse;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -31,6 +33,10 @@ public class UserService {
     @Transactional
     public UserResponse createUser(UserCreateRequest request) {
 
+        if (userRepository.findByLoginId(request.loginId()).isPresent()) {
+            throw new DuplicateLoginIdException();
+        }
+
         if (userRepository.findByEmail(request.email()).isPresent()) {
             throw new DuplicateEmailException();
         }
@@ -39,6 +45,8 @@ public class UserService {
             passwordEncoder.encode(request.password());
 
         User user = new User(
+            request.loginId(),
+            request.nickname(),
             request.email(),
             encodedPassword
         );
@@ -46,6 +54,19 @@ public class UserService {
         User savedUser = userRepository.save(user);
 
         return UserResponse.from(savedUser);
+    }
+
+    @Transactional(readOnly = true)
+    public LoginIdAvailabilityResponse checkLoginIdAvailability(
+        String loginId
+    ) {
+        boolean available =
+            userRepository.findByLoginId(loginId).isEmpty();
+
+        return new LoginIdAvailabilityResponse(
+            loginId,
+            available
+        );
     }
 
     @Transactional(readOnly = true)

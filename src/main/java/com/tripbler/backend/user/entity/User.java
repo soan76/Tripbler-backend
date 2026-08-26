@@ -17,6 +17,15 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // 로그인에 사용하는 아이디
+    @Column(nullable = false, unique = true)
+    private String loginId;
+
+    // 앱 내부에 표시할 닉네임
+    @Column(nullable = false)
+    private String nickname;
+
+    // 인증, 복구, 연락에 사용하는 이메일
     @Column(nullable = false, unique = true)
     private String email;
 
@@ -31,9 +40,13 @@ public class User {
     }
 
     public User(
+        String loginId,
+        String nickname,
         String email,
         String password
     ) {
+        this.loginId = loginId;
+        this.nickname = nickname;
         this.email = email;
         this.password = password;
         this.role = UserRole.USER;
@@ -43,23 +56,35 @@ public class User {
         return id;
     }
 
-    public String getEmail() {
-        return email;
+    public String getLoginId() {
+        return loginId;
     }
 
-    public void changeEmail(String email) {
-        this.email = email;
+    public String getNickname() {
+        return nickname;
+    }
+
+    public String getEmail() {
+        return email;
     }
 
     public String getPassword() {
         return password;
     }
 
-    public void changePassword(String encodedPassword) {
-        this.password = encodedPassword;
-    }
-
     public UserRole getRole() {
         return role;
+    }
+
+    public void changeNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public void changeEmail(String email) {
+        this.email = email;
+    }
+
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
     }
 }

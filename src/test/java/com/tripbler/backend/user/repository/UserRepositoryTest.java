@@ -21,19 +21,30 @@ class UserRepositoryTest {
     @Test
     void saveAndFindByEmail() {
         // given
-        String email = "test-" + UUID.randomUUID() + "@tripbler.com";
+        String uniqueValue = UUID.randomUUID().toString();
+
+        String loginId = "test-" + uniqueValue;
+        String nickname = "테스트사용자";
+        String email = "test-" + uniqueValue + "@tripbler.com";
+
         User user = new User(
+            loginId,
+            nickname,
             email,
             "encoded-test-password"
         );
 
         // when
         User savedUser = userRepository.save(user);
-        Optional<User> foundUser = userRepository.findByEmail(email);
+        Optional<User> foundUser =
+            userRepository.findByEmail(email);
 
         // then
         assertNotNull(savedUser.getId());
         assertTrue(foundUser.isPresent());
-        assertEquals(email, foundUser.get().getEmail());
+        assertEquals(
+            email,
+            foundUser.get().getEmail()
+        );
     }
 }

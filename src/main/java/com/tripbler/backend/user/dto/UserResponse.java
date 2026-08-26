@@ -4,12 +4,16 @@ import com.tripbler.backend.user.entity.User;
 
 public record UserResponse(
     Long id,
+    String loginId,
+    String nickname,
     String email
 ) {
 
     public static UserResponse from(User user) {
         return new UserResponse(
             user.getId(),
+            user.getLoginId(),
+            user.getNickname(),
             user.getEmail()
         );
     }

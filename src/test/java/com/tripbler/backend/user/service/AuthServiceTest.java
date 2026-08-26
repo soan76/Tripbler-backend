@@ -73,8 +73,8 @@ class AuthServiceTest {
             .thenReturn(UserRole.USER);
 
         when(
-            userRepository.findByEmail(
-                "test@tripbler.com"
+            userRepository.findByLoginId(
+                "testuser"
             )
         ).thenReturn(
             Optional.of(user)
@@ -105,7 +105,7 @@ class AuthServiceTest {
 
         UserLoginRequest request =
             new UserLoginRequest(
-                "test@tripbler.com",
+                "testuser",
                 "password123"
             );
 
@@ -139,11 +139,11 @@ class AuthServiceTest {
     }
 
     @Test
-    void loginFailsWhenEmailDoesNotExist() {
+    void loginFailsWhenLoginIdDoesNotExist() {
 
         when(
-            userRepository.findByEmail(
-                "missing@tripbler.com"
+            userRepository.findByLoginId(
+                "missing-user"
             )
         ).thenReturn(
             Optional.empty()
@@ -151,7 +151,7 @@ class AuthServiceTest {
 
         UserLoginRequest request =
             new UserLoginRequest(
-                "missing@tripbler.com",
+                "missing-user",
                 "password123"
             );
 
@@ -175,8 +175,8 @@ class AuthServiceTest {
             .thenReturn("encoded-password");
 
         when(
-            userRepository.findByEmail(
-                "test@tripbler.com"
+            userRepository.findByLoginId(
+                "testuser"
             )
         ).thenReturn(
             Optional.of(user)
@@ -191,7 +191,7 @@ class AuthServiceTest {
 
         UserLoginRequest request =
             new UserLoginRequest(
-                "test@tripbler.com",
+                "testuser",
                 "wrong-password"
             );
 

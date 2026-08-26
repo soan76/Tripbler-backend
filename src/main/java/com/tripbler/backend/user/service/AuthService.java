@@ -41,7 +41,7 @@ public class AuthService {
         UserLoginRequest request
     ) {
         User user = userRepository
-            .findByEmail(request.email())
+            .findByLoginId(request.loginId())
             .orElseThrow(
                 InvalidCredentialsException::new
             );

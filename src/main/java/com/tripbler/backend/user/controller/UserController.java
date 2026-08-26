@@ -5,6 +5,7 @@ import com.tripbler.backend.user.dto.UserResponse;
 import com.tripbler.backend.user.service.UserService;
 import com.tripbler.backend.user.dto.UserUpdateRequest;
 import com.tripbler.backend.user.dto.UserPasswordChangeRequest;
+import com.tripbler.backend.user.dto.LoginIdAvailabilityResponse;
 
 import jakarta.validation.Valid;
 
@@ -18,6 +19,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -46,6 +48,15 @@ public class UserController {
         );
 
         return userService.getUserById(userId);
+    }
+
+    @GetMapping("/check-login-id")
+    public LoginIdAvailabilityResponse checkLoginIdAvailability(
+        @RequestParam String loginId
+    ) {
+        return userService.checkLoginIdAvailability(
+            loginId
+        );
     }
 
     @PatchMapping("/me")
