@@ -28,12 +28,6 @@ public enum ErrorCode {
         "조회할 대상 통화를 하나 이상 입력해야 합니다."
     ),
 
-    DUPLICATE_EMAIL(
-        HttpStatus.CONFLICT,
-        "DUPLICATE_EMAIL",
-        "이미 사용 중인 이메일입니다."
-    ),
-
     DUPLICATE_LOGIN_ID(
         HttpStatus.CONFLICT,
         "DUPLICATE_LOGIN_ID",
@@ -47,9 +41,9 @@ public enum ErrorCode {
     ),
 
     INVALID_CREDENTIALS(
-    HttpStatus.UNAUTHORIZED,
+        HttpStatus.UNAUTHORIZED,
         "INVALID_CREDENTIALS",
-        "이메일 또는 비밀번호가 올바르지 않습니다."
+        "아이디 또는 비밀번호가 올바르지 않습니다."
     ),
 
     CURRENT_PASSWORD_MISMATCH(
@@ -65,9 +59,9 @@ public enum ErrorCode {
     ),
 
     FORBIDDEN(
-            HttpStatus.FORBIDDEN,
-            "FORBIDDEN",
-            "접근 권한이 없습니다."
+        HttpStatus.FORBIDDEN,
+        "FORBIDDEN",
+        "접근 권한이 없습니다."
     ),
 
     INVALID_REFRESH_TOKEN(

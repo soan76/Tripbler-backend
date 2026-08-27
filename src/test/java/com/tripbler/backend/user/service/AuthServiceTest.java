@@ -63,8 +63,8 @@ class AuthServiceTest {
         when(user.getId())
             .thenReturn(1L);
 
-        when(user.getEmail())
-            .thenReturn("test@tripbler.com");
+        when(user.getLoginId())
+            .thenReturn("testuser");
 
         when(user.getPassword())
             .thenReturn("encoded-password");
@@ -90,7 +90,6 @@ class AuthServiceTest {
         when(
             jwtTokenService.createAccessToken(
                 1L,
-                "test@tripbler.com",
                 UserRole.USER
             )
         ).thenReturn(
@@ -118,8 +117,8 @@ class AuthServiceTest {
         );
 
         assertEquals(
-            "test@tripbler.com",
-            response.email()
+            "testuser",
+            response.loginId()
         );
 
         assertEquals(
@@ -205,7 +204,6 @@ class AuthServiceTest {
             never()
         ).createAccessToken(
             any(),
-            any(),
             any()
         );
 
@@ -222,9 +220,6 @@ class AuthServiceTest {
 
         when(user.getId())
             .thenReturn(1L);
-
-        when(user.getEmail())
-            .thenReturn("test@tripbler.com");
 
         when(user.getRole())
             .thenReturn(UserRole.USER);
@@ -248,7 +243,6 @@ class AuthServiceTest {
         when(
             jwtTokenService.createAccessToken(
                 1L,
-                "test@tripbler.com",
                 UserRole.USER
             )
         ).thenReturn(

@@ -1,16 +1,14 @@
 package com.tripbler.backend.user.service;
 
+import com.tripbler.backend.user.dto.LoginIdAvailabilityResponse;
 import com.tripbler.backend.user.dto.UserCreateRequest;
+import com.tripbler.backend.user.dto.UserPasswordChangeRequest;
 import com.tripbler.backend.user.dto.UserResponse;
 import com.tripbler.backend.user.entity.User;
-import com.tripbler.backend.user.exception.DuplicateEmailException;
-import com.tripbler.backend.user.exception.UserNotFoundException;
-import com.tripbler.backend.user.repository.UserRepository;
-import com.tripbler.backend.user.dto.UserUpdateRequest;
-import com.tripbler.backend.user.dto.UserPasswordChangeRequest;
 import com.tripbler.backend.user.exception.CurrentPasswordMismatchException;
 import com.tripbler.backend.user.exception.DuplicateLoginIdException;
-import com.tripbler.backend.user.dto.LoginIdAvailabilityResponse;
+import com.tripbler.backend.user.exception.UserNotFoundException;
+import com.tripbler.backend.user.repository.UserRepository;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -37,17 +35,22 @@ public class UserService {
             throw new DuplicateLoginIdException();
         }
 
-        if (userRepository.findByEmail(request.email()).isPresent()) {
-            throw new DuplicateEmailException();
-        }
-
         String encodedPassword =
             passwordEncoder.encode(request.password());
 
+        String nickname = request.nickname();
+
+        if (nickname != null) {
+            nickname = nickname.trim();
+
+            if (nickname.isEmpty()) {
+                nickname = null;
+            }
+        }
+
         User user = new User(
             request.loginId(),
-            request.nickname(),
-            request.email(),
+            nickname,
             encodedPassword
         );
 
@@ -74,30 +77,6 @@ public class UserService {
 
         User user = userRepository.findById(userId)
             .orElseThrow(UserNotFoundException::new);
-
-        return UserResponse.from(user);
-    }
-
-    @Transactional
-    public UserResponse updateUser(
-        Long userId,
-        UserUpdateRequest request
-    ) {
-        User user = userRepository.findById(userId)
-            .orElseThrow(UserNotFoundException::new);
-
-        if (user.getEmail().equals(request.email())) {
-            return UserResponse.from(user);
-        }
-
-        userRepository.findByEmail(request.email())
-            .ifPresent(existingUser -> {
-                if (!existingUser.getId().equals(userId)) {
-                    throw new DuplicateEmailException();
-                }
-            });
-
-        user.changeEmail(request.email());
 
         return UserResponse.from(user);
     }

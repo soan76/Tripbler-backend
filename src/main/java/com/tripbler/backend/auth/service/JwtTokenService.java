@@ -34,7 +34,6 @@ public class JwtTokenService {
 
     public String createAccessToken(
         Long userId,
-        String email,
         UserRole role
     ) {
         Instant now = Instant.now();
@@ -48,7 +47,6 @@ public class JwtTokenService {
             .subject(userId.toString())
             .issuedAt(now)
             .expiresAt(expiresAt)
-            .claim("email", email)
             .claim(
                 "roles",
                 List.of(role.name())

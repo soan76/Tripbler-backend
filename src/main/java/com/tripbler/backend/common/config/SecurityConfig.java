@@ -44,16 +44,19 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(authorize ->
                 authorize
+                    // 회원가입
                     .requestMatchers(
                         HttpMethod.POST,
                         "/api/v1/users"
                     ).permitAll()
 
+                    // 로그아웃은 JWT 인증 필요
                     .requestMatchers(
                         HttpMethod.POST,
                         "/api/v1/auth/logout"
                     ).authenticated()
 
+                    // 로그인 / Refresh 등 인증 API
                     .requestMatchers(
                         "/api/v1/auth/**"
                     ).permitAll()
@@ -74,8 +77,10 @@ public class SecurityConfig {
                         "/api/v1/admin/**"
                     ).hasRole("ADMIN")
 
+                    // 현재 사용자 관련 API는 JWT 인증 필요
                     .requestMatchers(
-                        "/api/v1/users/me"
+                        "/api/v1/users/me",
+                        "/api/v1/users/me/**"
                     ).authenticated()
 
                     .anyRequest().permitAll()

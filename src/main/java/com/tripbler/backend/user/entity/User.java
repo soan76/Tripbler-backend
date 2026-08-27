@@ -22,13 +22,9 @@ public class User {
     private String loginId;
 
     // 앱 내부에 표시할 닉네임
-    @Column(nullable = false)
+    @Column(length = 20)
     private String nickname;
-
-    // 인증, 복구, 연락에 사용하는 이메일
-    @Column(nullable = false, unique = true)
-    private String email;
-
+    
     @Column(nullable = false)
     private String password;
 
@@ -42,12 +38,10 @@ public class User {
     public User(
         String loginId,
         String nickname,
-        String email,
         String password
     ) {
         this.loginId = loginId;
         this.nickname = nickname;
-        this.email = email;
         this.password = password;
         this.role = UserRole.USER;
     }
@@ -64,10 +58,6 @@ public class User {
         return nickname;
     }
 
-    public String getEmail() {
-        return email;
-    }
-
     public String getPassword() {
         return password;
     }
@@ -78,10 +68,6 @@ public class User {
 
     public void changeNickname(String nickname) {
         this.nickname = nickname;
-    }
-
-    public void changeEmail(String email) {
-        this.email = email;
     }
 
     public void changePassword(String encodedPassword) {

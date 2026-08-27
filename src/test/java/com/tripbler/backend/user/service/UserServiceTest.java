@@ -1,6 +1,8 @@
 package com.tripbler.backend.user.service;
 
 import com.tripbler.backend.user.dto.LoginIdAvailabilityResponse;
+import com.tripbler.backend.user.dto.UserCreateRequest;
+import com.tripbler.backend.user.dto.UserResponse;
 import com.tripbler.backend.user.entity.User;
 import com.tripbler.backend.user.repository.UserRepository;
 
@@ -16,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -67,7 +70,6 @@ class UserServiceTest {
         User existingUser = new User(
             loginId,
             "여행자",
-            "test0908@tripbler.com",
             "encodedPassword"
         );
 
@@ -84,5 +86,67 @@ class UserServiceTest {
 
         assertThat(response.available())
             .isFalse();
+    }
+
+    @Test
+    void createUserSucceedsWithoutNickname() {
+
+        // given
+        UserCreateRequest request = new UserCreateRequest(
+            "nonicktest01",
+            null,
+            "password123"
+        );
+
+        when(userRepository.findByLoginId(request.loginId()))
+            .thenReturn(Optional.empty());
+
+        when(passwordEncoder.encode(request.password()))
+            .thenReturn("encodedPassword");
+
+        when(userRepository.save(any(User.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // when
+        UserResponse response =
+            userService.createUser(request);
+
+        // then
+        assertThat(response.loginId())
+            .isEqualTo("nonicktest01");
+
+        assertThat(response.nickname())
+            .isNull();
+    }
+
+    @Test
+    void createUserSucceedsWithOneCharacterNickname() {
+
+        // given
+        UserCreateRequest request = new UserCreateRequest(
+            "nicktest01",
+            "가",
+            "password123"
+        );
+
+        when(userRepository.findByLoginId(request.loginId()))
+            .thenReturn(Optional.empty());
+
+        when(passwordEncoder.encode(request.password()))
+            .thenReturn("encodedPassword");
+
+        when(userRepository.save(any(User.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // when
+        UserResponse response =
+            userService.createUser(request);
+
+        // then
+        assertThat(response.loginId())
+            .isEqualTo("nicktest01");
+
+        assertThat(response.nickname())
+            .isEqualTo("가");
     }
 }

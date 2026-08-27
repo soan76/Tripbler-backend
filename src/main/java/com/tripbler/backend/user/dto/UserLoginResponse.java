@@ -4,7 +4,7 @@ import com.tripbler.backend.user.entity.User;
 
 public record UserLoginResponse(
     Long id,
-    String email,
+    String loginId,
     String accessToken,
     String refreshToken,
     String tokenType
@@ -17,7 +17,7 @@ public record UserLoginResponse(
     ) {
         return new UserLoginResponse(
             user.getId(),
-            user.getEmail(),
+            user.getLoginId(),
             accessToken,
             refreshToken,
             "Bearer"
