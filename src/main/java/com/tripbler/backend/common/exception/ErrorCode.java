@@ -64,6 +64,24 @@ public enum ErrorCode {
         "접근 권한이 없습니다."
     ),
 
+    SOCIAL_ACCOUNT_ALREADY_LINKED(
+        HttpStatus.CONFLICT,
+        "SOCIAL_ACCOUNT_ALREADY_LINKED",
+        "이미 해당 플랫폼 계정이 연동되어 있습니다."
+    ),
+
+    SOCIAL_ACCOUNT_USED_BY_ANOTHER_USER(
+        HttpStatus.CONFLICT,
+        "SOCIAL_ACCOUNT_USED_BY_ANOTHER_USER",
+        "해당 플랫폼 계정은 다른 사용자에게 이미 연동되어 있습니다."
+    ),
+
+    INVALID_SOCIAL_TOKEN(
+        HttpStatus.UNAUTHORIZED,
+        "INVALID_SOCIAL_TOKEN",
+        "외부 플랫폼 인증 정보가 올바르지 않습니다."
+    ),
+
     INVALID_REFRESH_TOKEN(
         HttpStatus.UNAUTHORIZED,
         "INVALID_REFRESH_TOKEN",
