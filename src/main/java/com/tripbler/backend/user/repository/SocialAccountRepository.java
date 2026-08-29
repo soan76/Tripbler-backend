@@ -4,6 +4,7 @@ import com.tripbler.backend.user.entity.SocialAccount;
 import com.tripbler.backend.user.entity.SocialProvider;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface SocialAccountRepository
@@ -25,4 +26,7 @@ public interface SocialAccountRepository
         SocialProvider provider,
         String providerUserId
     );
+
+    // 현재 사용자에게 연동된 소셜 계정을 조회한다.
+    List<SocialAccount> findAllByUserId(Long userId);
 }

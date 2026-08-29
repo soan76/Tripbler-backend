@@ -1,6 +1,7 @@
 package com.tripbler.backend.user.service;
 
 import com.tripbler.backend.common.exception.BusinessException;
+import com.tripbler.backend.common.exception.ErrorCode;
 import com.tripbler.backend.user.entity.SocialAccount;
 import com.tripbler.backend.user.entity.SocialProvider;
 import com.tripbler.backend.user.entity.User;
@@ -8,15 +9,17 @@ import com.tripbler.backend.user.exception.SocialAccountAlreadyLinkedException;
 import com.tripbler.backend.user.exception.SocialAccountUsedByAnotherUserException;
 import com.tripbler.backend.user.repository.SocialAccountRepository;
 import com.tripbler.backend.user.repository.UserRepository;
+import com.tripbler.backend.user.dto.response.SocialAccountStatusResponse;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import java.util.List;
+import java.util.Optional;
+
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -39,6 +42,73 @@ class SocialAccountServiceTest {
             socialAccountRepository,
             userRepository
         );
+    }
+
+    @Test
+    void getLinkedSocialAccountsReturnsGoogle() {
+        Long userId = 1L;
+
+        SocialAccount googleAccount = mock(SocialAccount.class);
+
+        when(userRepository.existsById(userId))
+            .thenReturn(true);
+
+        when(googleAccount.getProvider())
+            .thenReturn(SocialProvider.GOOGLE);
+
+        when(socialAccountRepository.findAllByUserId(userId))
+            .thenReturn(List.of(googleAccount));
+
+        SocialAccountStatusResponse response =
+            socialAccountService.getLinkedSocialAccounts(userId);
+
+        assertEquals(
+            List.of(SocialProvider.GOOGLE),
+            response.linkedProviders()
+        );
+
+        verify(userRepository).existsById(userId);
+        verify(socialAccountRepository).findAllByUserId(userId);
+    }
+
+    @Test
+    void getLinkedSocialAccountsReturnsEmptyList() {
+        Long userId = 1L;
+
+        when(userRepository.existsById(userId))
+            .thenReturn(true);
+
+        when(socialAccountRepository.findAllByUserId(userId))
+            .thenReturn(List.of());
+
+        SocialAccountStatusResponse response =
+            socialAccountService.getLinkedSocialAccounts(userId);
+
+        assertTrue(response.linkedProviders().isEmpty());
+
+        verify(userRepository).existsById(userId);
+        verify(socialAccountRepository).findAllByUserId(userId);
+    }
+
+    @Test
+    void getLinkedSocialAccountsFailsWhenUserDoesNotExist() {
+        Long userId = 1L;
+
+        when(userRepository.existsById(userId))
+            .thenReturn(false);
+
+        BusinessException exception = assertThrows(
+            BusinessException.class,
+            () -> socialAccountService.getLinkedSocialAccounts(userId)
+        );
+
+        assertEquals(
+            ErrorCode.USER_NOT_FOUND,
+            exception.getErrorCode()
+        );
+
+        verify(userRepository).existsById(userId);
+        verifyNoInteractions(socialAccountRepository);
     }
 
     @Test

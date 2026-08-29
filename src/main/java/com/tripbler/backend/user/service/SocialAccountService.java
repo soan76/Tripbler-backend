@@ -9,6 +9,9 @@ import com.tripbler.backend.user.exception.SocialAccountAlreadyLinkedException;
 import com.tripbler.backend.user.exception.SocialAccountUsedByAnotherUserException;
 import com.tripbler.backend.user.repository.SocialAccountRepository;
 import com.tripbler.backend.user.repository.UserRepository;
+import com.tripbler.backend.user.dto.response.SocialAccountStatusResponse;
+
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +29,22 @@ public class SocialAccountService {
     ) {
         this.socialAccountRepository = socialAccountRepository;
         this.userRepository = userRepository;
+    }
+
+    // 현재 사용자에게 연동된 소셜 플랫폼 목록을 조회한다.
+    @Transactional(readOnly = true)
+    public SocialAccountStatusResponse getLinkedSocialAccounts(Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        List<SocialProvider> linkedProviders = socialAccountRepository
+            .findAllByUserId(userId)
+            .stream()
+            .map(SocialAccount::getProvider)
+            .toList();
+
+        return new SocialAccountStatusResponse(linkedProviders);
     }
 
     // 플랫폼 인증이 완료된 계정을 현재 Tripbler 사용자에게 연동한다.
