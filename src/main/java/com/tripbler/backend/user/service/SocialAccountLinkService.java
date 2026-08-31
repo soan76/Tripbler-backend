@@ -32,7 +32,8 @@ public class SocialAccountLinkService {
         socialAccountService.linkSocialAccount(
             userId,
             socialUserInfo.provider(),
-            socialUserInfo.providerUserId()
+            socialUserInfo.providerUserId(),
+            socialUserInfo.providerEmail()
         );
     }
 }

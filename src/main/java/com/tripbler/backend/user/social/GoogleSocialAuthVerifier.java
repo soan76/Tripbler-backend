@@ -56,14 +56,22 @@ public class GoogleSocialAuthVerifier
             String providerUserId =
                 idToken.getPayload().getSubject();
 
-            if (providerUserId == null ||
-                providerUserId.isBlank()) {
+            String providerEmail =
+                idToken.getPayload().getEmail();
+
+            Boolean emailVerified =
+                idToken.getPayload().getEmailVerified();
+
+            if (providerEmail == null ||
+                providerEmail.isBlank() ||
+                !Boolean.TRUE.equals(emailVerified)) {
                 throw new InvalidSocialTokenException();
             }
 
             return new SocialUserInfo(
                 SocialProvider.GOOGLE,
-                providerUserId
+                providerUserId,
+                providerEmail
             );
         } catch (
             GeneralSecurityException |

@@ -47,11 +47,29 @@ public class SocialAccountService {
         return new SocialAccountStatusResponse(linkedProviders);
     }
 
+    // 현재 사용자의 특정 소셜 플랫폼 연동을 해제한다.
+    public void unlinkSocialAccount(
+        Long userId,
+        SocialProvider provider
+    ) {
+        if (!userRepository.existsById(userId)) {
+            throw new BusinessException(
+                ErrorCode.USER_NOT_FOUND
+            );
+        }
+
+        socialAccountRepository.deleteByUserIdAndProvider(
+            userId,
+            provider
+        );
+    }
+
     // 플랫폼 인증이 완료된 계정을 현재 Tripbler 사용자에게 연동한다.
     public SocialAccount linkSocialAccount(
         Long userId,
         SocialProvider provider,
-        String providerUserId
+        String providerUserId,
+        String providerEmail
     ) {
         User user = userRepository.findById(userId)
             .orElseThrow(
@@ -75,7 +93,8 @@ public class SocialAccountService {
         SocialAccount socialAccount = new SocialAccount(
             user,
             provider,
-            providerUserId
+            providerUserId,
+            providerEmail
         );
 
         return socialAccountRepository.save(socialAccount);

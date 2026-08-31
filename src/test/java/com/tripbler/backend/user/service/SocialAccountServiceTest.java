@@ -144,7 +144,8 @@ class SocialAccountServiceTest {
             socialAccountService.linkSocialAccount(
                 1L,
                 SocialProvider.GOOGLE,
-                "google-user-123"
+                "google-user-123",
+                "test@gmail.com"
             );
 
         assertEquals(
@@ -155,6 +156,11 @@ class SocialAccountServiceTest {
         assertEquals(
             "google-user-123",
             result.getProviderUserId()
+        );
+
+        assertEquals(
+            "test@gmail.com",
+            result.getProviderEmail()
         );
 
         verify(socialAccountRepository)
@@ -183,10 +189,11 @@ class SocialAccountServiceTest {
         assertThrows(
             SocialAccountAlreadyLinkedException.class,
             () -> socialAccountService.linkSocialAccount(
-                1L,
-                SocialProvider.GOOGLE,
-                "google-user-123"
-            )
+                    1L,
+                    SocialProvider.GOOGLE,
+                    "google-user-123",
+                    "test@gmail.com"
+                )
         );
 
         verify(
@@ -224,10 +231,11 @@ class SocialAccountServiceTest {
         assertThrows(
             SocialAccountUsedByAnotherUserException.class,
             () -> socialAccountService.linkSocialAccount(
-                1L,
-                SocialProvider.GOOGLE,
-                "google-user-123"
-            )
+                    1L,
+                    SocialProvider.GOOGLE,
+                    "google-user-123",
+                    "test@gmail.com"
+                )
         );
 
         verify(
@@ -245,14 +253,63 @@ class SocialAccountServiceTest {
         assertThrows(
             BusinessException.class,
             () -> socialAccountService.linkSocialAccount(
-                999L,
-                SocialProvider.GOOGLE,
-                "google-user-123"
-            )
+                    999L,
+                    SocialProvider.GOOGLE,
+                    "google-user-123",
+                    "test@gmail.com"
+                )
         );
 
         verifyNoInteractions(
             socialAccountRepository
         );
+    }
+
+    @Test
+    void unlinkSocialAccountSucceeds() {
+        Long userId = 1L;
+
+        when(userRepository.existsById(userId))
+            .thenReturn(true);
+
+        socialAccountService.unlinkSocialAccount(
+            userId,
+            SocialProvider.GOOGLE
+        );
+
+        verify(userRepository)
+            .existsById(userId);
+
+        verify(socialAccountRepository)
+            .deleteByUserIdAndProvider(
+                userId,
+                SocialProvider.GOOGLE
+            );
+    }
+
+    @Test
+    void unlinkSocialAccountFailsWhenUserDoesNotExist() {
+        Long userId = 999L;
+
+        when(userRepository.existsById(userId))
+            .thenReturn(false);
+
+        BusinessException exception = assertThrows(
+            BusinessException.class,
+            () -> socialAccountService.unlinkSocialAccount(
+                userId,
+                SocialProvider.GOOGLE
+            )
+        );
+
+        assertEquals(
+            ErrorCode.USER_NOT_FOUND,
+            exception.getErrorCode()
+        );
+
+        verify(userRepository)
+            .existsById(userId);
+
+        verifyNoInteractions(socialAccountRepository);
     }
 }

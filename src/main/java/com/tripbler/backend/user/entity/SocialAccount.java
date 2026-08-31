@@ -50,17 +50,26 @@ public class SocialAccount {
     )
     private String providerUserId;
 
+    // 플랫폼에서 인증된 이메일을 저장한다.
+    @Column(
+        name = "provider_email",
+        length = 320
+    )
+    private String providerEmail;
+
     protected SocialAccount() {
     }
 
     public SocialAccount(
         User user,
         SocialProvider provider,
-        String providerUserId
+        String providerUserId,
+        String providerEmail
     ) {
         this.user = user;
         this.provider = provider;
         this.providerUserId = providerUserId;
+        this.providerEmail = providerEmail;
     }
 
     public Long getId() {
@@ -77,5 +86,9 @@ public class SocialAccount {
 
     public String getProviderUserId() {
         return providerUserId;
+    }
+
+    public String getProviderEmail() {
+        return providerEmail;
     }
 }

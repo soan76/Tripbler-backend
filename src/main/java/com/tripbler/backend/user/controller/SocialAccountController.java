@@ -2,6 +2,7 @@ package com.tripbler.backend.user.controller;
 
 import com.tripbler.backend.user.dto.request.GoogleAccountLinkRequest;
 import com.tripbler.backend.user.dto.response.SocialAccountStatusResponse;
+import com.tripbler.backend.user.entity.SocialProvider;
 import com.tripbler.backend.user.service.SocialAccountLinkService;
 import com.tripbler.backend.user.service.SocialAccountService;
 
@@ -52,6 +53,23 @@ public class SocialAccountController {
         socialAccountLinkService.linkGoogleAccount(
             userId,
             request.idToken()
+        );
+
+        return ResponseEntity.noContent().build();
+    }
+
+    // 현재 사용자에게 연동된 Google 계정을 해제한다.
+    @DeleteMapping("/google")
+    public ResponseEntity<Void> unlinkGoogleAccount(
+        Authentication authentication
+    ) {
+        Long userId = Long.valueOf(
+            authentication.getName()
+        );
+
+        socialAccountService.unlinkSocialAccount(
+            userId,
+            SocialProvider.GOOGLE
         );
 
         return ResponseEntity.noContent().build();

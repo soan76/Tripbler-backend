@@ -28,6 +28,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 
 @WebMvcTest(SocialAccountController.class)
 @Import({
@@ -179,5 +180,32 @@ class SocialAccountControllerTest {
         verifyNoInteractions(
             socialAccountLinkService
         );
+    }
+
+    @Test
+    void unlinkGoogleAccountSucceeds() throws Exception {
+        mockMvc.perform(
+            delete("/api/v1/users/me/social-accounts/google")
+                .with(jwt().jwt(token -> token.subject("1")))
+        )
+            .andExpect(status().isNoContent());
+
+        verify(socialAccountService)
+            .unlinkSocialAccount(
+                1L,
+                SocialProvider.GOOGLE
+            );
+    }
+
+    @Test
+    void unlinkGoogleAccountFailsWithoutAuthentication()
+        throws Exception {
+
+        mockMvc.perform(
+            delete("/api/v1/users/me/social-accounts/google")
+        )
+            .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(socialAccountService);
     }
 }
