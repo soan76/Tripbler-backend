@@ -52,6 +52,12 @@ public enum ErrorCode {
         "현재 비밀번호가 올바르지 않습니다."
     ),
 
+    NEW_PASSWORD_SAME_AS_CURRENT(
+        HttpStatus.BAD_REQUEST,
+        "NEW_PASSWORD_SAME_AS_CURRENT",
+        "새 비밀번호는 현재 비밀번호와 다르게 설정해 주세요."
+    ),
+
     UNAUTHORIZED(
         HttpStatus.UNAUTHORIZED,
         "UNAUTHORIZED",
@@ -116,6 +122,30 @@ public enum ErrorCode {
         HttpStatus.BAD_REQUEST,
         "EXPIRED_FIND_ID_VERIFICATION_CODE",
         "인증코드가 만료되었습니다. 다시 발급해 주세요."
+    ),
+
+    INVALID_PASSWORD_RESET_VERIFICATION_CODE(
+        HttpStatus.BAD_REQUEST,
+        "INVALID_PASSWORD_RESET_VERIFICATION_CODE",
+        "인증코드가 맞지 않습니다."
+    ),
+
+    EXPIRED_PASSWORD_RESET_VERIFICATION_CODE(
+        HttpStatus.BAD_REQUEST,
+        "EXPIRED_PASSWORD_RESET_VERIFICATION_CODE",
+        "인증코드가 만료되었습니다. 다시 발급해 주세요."
+    ),
+
+    INVALID_PASSWORD_RESET_TOKEN(
+        HttpStatus.UNAUTHORIZED,
+        "INVALID_PASSWORD_RESET_TOKEN",
+        "비밀번호 재설정 인증 정보가 유효하지 않습니다."
+    ),
+
+    EXPIRED_PASSWORD_RESET_TOKEN(
+        HttpStatus.UNAUTHORIZED,
+        "EXPIRED_PASSWORD_RESET_TOKEN",
+        "비밀번호 재설정 인증이 만료되었습니다. 다시 인증해 주세요."
     ),
 
     INTERNAL_SERVER_ERROR(

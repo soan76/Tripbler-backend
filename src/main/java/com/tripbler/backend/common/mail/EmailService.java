@@ -38,4 +38,24 @@ public class EmailService {
 
         mailSender.send(message);
     }
+
+    // 비밀번호 재설정용 인증코드를 이메일로 발송한다.
+    public void sendPasswordResetVerificationCode(
+        String recipientEmail,
+        String verificationCode
+    ) {
+        SimpleMailMessage message = new SimpleMailMessage();
+
+        message.setFrom(senderEmail);
+        message.setTo(recipientEmail);
+        message.setSubject("[Tripbler] 비밀번호 재설정 인증코드");
+        message.setText(
+            "Tripbler 비밀번호 재설정 인증코드는 "
+                + verificationCode
+                + " 입니다.\n\n"
+                + "인증코드는 5분 동안 유효합니다."
+        );
+
+        mailSender.send(message);
+    }
 }

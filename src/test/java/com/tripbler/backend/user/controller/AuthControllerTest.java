@@ -1,6 +1,8 @@
 package com.tripbler.backend.user.controller;
 
 import com.tripbler.backend.auth.service.FindIdVerificationService;
+import com.tripbler.backend.auth.service.PasswordResetVerificationService;
+import com.tripbler.backend.auth.service.PasswordResetService;
 import com.tripbler.backend.common.config.SecurityConfig;
 import com.tripbler.backend.common.exception.BusinessException;
 import com.tripbler.backend.common.exception.ErrorCode;
@@ -41,6 +43,12 @@ class AuthControllerTest {
 
     @MockitoBean
     private FindIdVerificationService findIdVerificationService;
+
+    @MockitoBean
+    private PasswordResetVerificationService passwordResetVerificationService;
+
+    @MockitoBean
+    private PasswordResetService passwordResetService;
 
     @MockitoBean
     private JwtDecoder jwtDecoder;
