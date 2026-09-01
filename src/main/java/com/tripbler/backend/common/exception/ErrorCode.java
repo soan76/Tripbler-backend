@@ -106,11 +106,24 @@ public enum ErrorCode {
         "현재 번역 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해 주세요."
     ),
 
+    INVALID_FIND_ID_VERIFICATION_CODE(
+        HttpStatus.BAD_REQUEST,
+        "INVALID_FIND_ID_VERIFICATION_CODE",
+        "인증코드가 맞지 않습니다."
+    ),
+
+    EXPIRED_FIND_ID_VERIFICATION_CODE(
+        HttpStatus.BAD_REQUEST,
+        "EXPIRED_FIND_ID_VERIFICATION_CODE",
+        "인증코드가 만료되었습니다. 다시 발급해 주세요."
+    ),
+
     INTERNAL_SERVER_ERROR(
         HttpStatus.INTERNAL_SERVER_ERROR,
         "INTERNAL_SERVER_ERROR",
         "서버 내부 오류가 발생했습니다."
     );
+
 
     private final HttpStatus status;
     private final String code;
