@@ -191,4 +191,110 @@ class AuthControllerTest {
                 "111111"
             );
     }
+
+    @Test
+    void sendPasswordResetVerificationCodeSucceedsWithoutAuthentication()
+        throws Exception {
+
+        mockMvc.perform(
+            post("/api/v1/auth/password-reset/send-code")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                    "loginId": "testuser",
+                    "email": "test@gmail.com"
+                    }
+                    """)
+        )
+            .andExpect(status().isNoContent());
+
+        verify(passwordResetVerificationService)
+            .sendVerificationCode(
+                "testuser",
+                "test@gmail.com"
+            );
+    }
+
+    @Test
+    void verifyPasswordResetCodeReturnsResetToken()
+        throws Exception {
+
+        when(
+            passwordResetVerificationService
+                .verifyCode(
+                    "testuser",
+                    "test@gmail.com",
+                    "123456"
+                )
+        ).thenReturn("test-reset-token");
+
+        mockMvc.perform(
+            post("/api/v1/auth/password-reset/verify-code")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                    "loginId": "testuser",
+                    "email": "test@gmail.com",
+                    "code": "123456"
+                    }
+                    """)
+        )
+            .andExpect(status().isOk())
+            .andExpect(
+                jsonPath("$.resetToken")
+                    .value("test-reset-token")
+            );
+
+        verify(passwordResetVerificationService)
+            .verifyCode(
+                "testuser",
+                "test@gmail.com",
+                "123456"
+            );
+    }
+
+    @Test
+    void verifyPasswordResetCodeFailsWithInvalidCodeFormat()
+        throws Exception {
+
+        mockMvc.perform(
+            post("/api/v1/auth/password-reset/verify-code")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                    "loginId": "testuser",
+                    "email": "test@gmail.com",
+                    "code": "123"
+                    }
+                    """)
+        )
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(
+            passwordResetVerificationService
+        );
+    }
+
+    @Test
+    void resetPasswordSucceedsWithoutAuthentication()
+        throws Exception {
+
+        mockMvc.perform(
+            post("/api/v1/auth/password-reset")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                    "resetToken": "test-reset-token",
+                    "newPassword": "Tripbler456!"
+                    }
+                    """)
+        )
+            .andExpect(status().isNoContent());
+
+        verify(passwordResetService)
+            .resetPassword(
+                "test-reset-token",
+                "Tripbler456!"
+            );
+    }
 }

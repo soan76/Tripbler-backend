@@ -27,7 +27,7 @@ public interface SocialAccountRepository
         Long userId,
         SocialProvider provider
     );
-
+    // 플랫폼과 플랫폼 고유 ID로 연동 계정 존재 여부를 확인한다.
     boolean existsByProviderAndProviderUserId(
         SocialProvider provider,
         String providerUserId
@@ -40,5 +40,10 @@ public interface SocialAccountRepository
     void deleteByUserIdAndProvider(
         Long userId,
         SocialProvider provider
+    );
+    
+    // 탈퇴하는 사용자의 모든 소셜 계정 연동 정보를 삭제한다.
+    void deleteAllByUserId(
+        Long userId
     );
 }

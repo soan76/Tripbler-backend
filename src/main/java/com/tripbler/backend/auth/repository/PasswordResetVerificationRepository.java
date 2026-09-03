@@ -20,4 +20,9 @@ public interface PasswordResetVerificationRepository
         String loginId,
         String email
     );
+
+    // 탈퇴하는 사용자의 비밀번호 재설정 인증 정보를 모두 삭제한다.
+    void deleteAllByLoginIdIgnoreCase(
+        String loginId
+    );
 }

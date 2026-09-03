@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,7 @@ import com.tripbler.backend.common.security.CustomAccessDeniedHandler;
 import com.tripbler.backend.common.security.CustomAuthenticationEntryPoint;
 import com.tripbler.backend.user.controller.UserController;
 import com.tripbler.backend.user.service.UserService;
+import com.tripbler.backend.auth.service.AccountDeletionService;
 
 @WebMvcTest({
     UserController.class,
@@ -38,6 +40,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private AccountDeletionService accountDeletionService;
 
     @MockitoBean
     private JwtDecoder jwtDecoder;
@@ -104,5 +109,19 @@ class SecurityConfigTest {
             .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
             .andExpect(jsonPath("$.message").value("인증이 필요합니다."))
             .andExpect(jsonPath("$.path").value("/api/v1/auth/logout"));
+    }
+
+    @Test
+    @DisplayName("JWT 없이 계정 탈퇴 API에 접근하면 401 UNAUTHORIZED를 반환한다")
+    void deleteAccountWithoutJwtReturns401() throws Exception {
+
+        mockMvc.perform(
+                delete("/api/v1/users/me")
+            )
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.status").value(401))
+            .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+            .andExpect(jsonPath("$.message").value("인증이 필요합니다."))
+            .andExpect(jsonPath("$.path").value("/api/v1/users/me"));
     }
 }
