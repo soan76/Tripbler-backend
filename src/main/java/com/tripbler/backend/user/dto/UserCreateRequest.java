@@ -1,5 +1,7 @@
 package com.tripbler.backend.user.dto;
 
+import com.tripbler.backend.user.util.NicknameNormalizer;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -28,4 +30,7 @@ public record UserCreateRequest(
     )
     String password
 ) {
+    public UserCreateRequest {
+        nickname = NicknameNormalizer.normalize(nickname);
+    }
 }

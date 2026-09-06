@@ -4,6 +4,7 @@ import com.tripbler.backend.user.dto.LoginIdAvailabilityResponse;
 import com.tripbler.backend.user.dto.UserCreateRequest;
 import com.tripbler.backend.user.dto.UserPasswordChangeRequest;
 import com.tripbler.backend.user.dto.UserResponse;
+import com.tripbler.backend.user.dto.UserNicknameChangeRequest;
 import com.tripbler.backend.user.service.UserService;
 import com.tripbler.backend.auth.service.AccountDeletionService;
 
@@ -36,6 +37,7 @@ public class UserController {
         this.userService = userService;
         this.accountDeletionService = accountDeletionService;
     }
+    
     // 새로운 사용자를 생성한다.
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -44,17 +46,31 @@ public class UserController {
     ) {
         return userService.createUser(request);
     }
+
     // 현재 로그인 사용자의 정보를 조회한다.
     @GetMapping("/me")
     public UserResponse getCurrentUser(
         @AuthenticationPrincipal Jwt jwt
     ) {
-        Long userId = Long.valueOf(
-            jwt.getSubject()
-        );
+        Long userId = currentUserId(jwt);
 
         return userService.getUserById(userId);
     }
+
+    // 현재 로그인 사용자의 닉네임을 변경한다.
+    @PatchMapping("/me/nickname")
+    public UserResponse changeNickname(
+        @AuthenticationPrincipal Jwt jwt,
+        @Valid @RequestBody UserNicknameChangeRequest request
+    ) {
+        Long userId = currentUserId(jwt);
+
+        return userService.changeNickname(
+            userId,
+            request
+        );
+    }
+
     // 로그인 ID 중복 여부를 확인한다. 
     @GetMapping("/check-login-id")
     public LoginIdAvailabilityResponse checkLoginIdAvailability(
@@ -73,9 +89,7 @@ public class UserController {
         @AuthenticationPrincipal Jwt jwt,
         @Valid @RequestBody UserPasswordChangeRequest request
     ) {
-        Long userId = Long.valueOf(
-            jwt.getSubject()
-        );
+        Long userId = currentUserId(jwt);
 
         userService.changePassword(
             userId,
@@ -89,12 +103,16 @@ public class UserController {
     public void deleteCurrentUser(
         @AuthenticationPrincipal Jwt jwt
     ) {
-        Long userId = Long.valueOf(
-            jwt.getSubject()
-        );
+        Long userId = currentUserId(jwt);
 
         accountDeletionService.deleteAccount(
             userId
+        );
+    }
+
+    private Long currentUserId(Jwt jwt) {
+        return Long.valueOf(
+            jwt.getSubject()
         );
     }
 }

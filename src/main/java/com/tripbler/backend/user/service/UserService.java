@@ -4,6 +4,7 @@ import com.tripbler.backend.user.dto.LoginIdAvailabilityResponse;
 import com.tripbler.backend.user.dto.UserCreateRequest;
 import com.tripbler.backend.user.dto.UserPasswordChangeRequest;
 import com.tripbler.backend.user.dto.UserResponse;
+import com.tripbler.backend.user.dto.UserNicknameChangeRequest;
 import com.tripbler.backend.user.entity.User;
 import com.tripbler.backend.user.exception.CurrentPasswordMismatchException;
 import com.tripbler.backend.user.exception.DuplicateLoginIdException;
@@ -38,19 +39,9 @@ public class UserService {
         String encodedPassword =
             passwordEncoder.encode(request.password());
 
-        String nickname = request.nickname();
-
-        if (nickname != null) {
-            nickname = nickname.trim();
-
-            if (nickname.isEmpty()) {
-                nickname = null;
-            }
-        }
-
         User user = new User(
             request.loginId(),
-            nickname,
+            request.nickname(),
             encodedPassword
         );
 
@@ -75,8 +66,21 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserResponse getUserById(Long userId) {
 
-        User user = userRepository.findById(userId)
-            .orElseThrow(UserNotFoundException::new);
+        User user = getUserOrThrow(userId);
+
+        return UserResponse.from(user);
+    }
+
+    @Transactional
+    public UserResponse changeNickname(
+        Long userId,
+        UserNicknameChangeRequest request
+    ) {
+        User user = getUserOrThrow(userId);
+
+        user.changeNickname(
+            request.nickname()
+        );
 
         return UserResponse.from(user);
     }
@@ -86,8 +90,7 @@ public class UserService {
         Long userId,
         UserPasswordChangeRequest request
     ) {
-        User user = userRepository.findById(userId)
-            .orElseThrow(UserNotFoundException::new);
+        User user = getUserOrThrow(userId);
 
         if (!passwordEncoder.matches(
             request.currentPassword(),
@@ -104,5 +107,10 @@ public class UserService {
         user.changePassword(
             encodedNewPassword
         );
+    }
+
+     private User getUserOrThrow(Long userId) {
+        return userRepository.findById(userId)
+            .orElseThrow(UserNotFoundException::new);
     }
 }
