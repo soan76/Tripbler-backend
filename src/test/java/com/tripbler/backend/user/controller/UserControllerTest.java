@@ -35,6 +35,7 @@ import com.tripbler.backend.user.dto.LoginIdAvailabilityResponse;
 import com.tripbler.backend.user.dto.UserCreateRequest;
 import com.tripbler.backend.user.dto.UserNicknameChangeRequest;
 import com.tripbler.backend.user.dto.UserResponse;
+import com.tripbler.backend.user.exception.DuplicateNicknameException;
 import com.tripbler.backend.user.service.UserService;
 
 @WebMvcTest(UserController.class)
@@ -295,6 +296,53 @@ class UserControllerTest {
     }
 
     @Test
+    @DisplayName("다른 사용자가 사용 중인 닉네임으로 변경하면 409 CONFLICT를 반환한다")
+    void changeNicknameWithDuplicateNicknameReturnsConflict()
+        throws Exception {
+
+        Long userId = 1L;
+
+        when(
+            userService.changeNickname(
+                eq(userId),
+                any(UserNicknameChangeRequest.class)
+            )
+        ).thenThrow(
+            new DuplicateNicknameException()
+        );
+
+        mockMvc.perform(
+                patch("/api/v1/users/me/nickname")
+                    .with(
+                        jwt().jwt(
+                            token -> token.subject(
+                                userId.toString()
+                            )
+                        )
+                    )
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                        {
+                        "nickname": "사용중닉네임"
+                        }
+                        """)
+            )
+            .andExpect(status().isConflict())
+            .andExpect(
+                jsonPath("$.status")
+                    .value(409)
+            )
+            .andExpect(
+                jsonPath("$.code")
+                    .value("DUPLICATE_NICKNAME")
+            )
+            .andExpect(
+                jsonPath("$.message")
+                    .value("이미 사용 중인 닉네임입니다.")
+            );
+    }
+
+    @Test
     @DisplayName("빈 닉네임으로 변경을 요청하면 400 BAD_REQUEST를 반환한다")
     void changeNicknameWithBlankNicknameReturnsBadRequest()
         throws Exception {
@@ -302,6 +350,45 @@ class UserControllerTest {
         performInvalidNicknameChange("   ");
 
         verifyChangeNicknameWasNotCalled();
+    }
+
+    @Test
+    @DisplayName("이미 사용 중인 닉네임으로 회원가입하면 409 CONFLICT를 반환한다")
+    void createUserWithDuplicateNicknameReturnsConflict()
+        throws Exception {
+
+        when(
+            userService.createUser(
+                any(UserCreateRequest.class)
+            )
+        ).thenThrow(
+            new DuplicateNicknameException()
+        );
+
+        mockMvc.perform(
+                post("/api/v1/users")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                        {
+                        "loginId": "newuser01",
+                        "nickname": "여행자",
+                        "password": "password123"
+                        }
+                        """)
+            )
+            .andExpect(status().isConflict())
+            .andExpect(
+                jsonPath("$.status")
+                    .value(409)
+            )
+            .andExpect(
+                jsonPath("$.code")
+                    .value("DUPLICATE_NICKNAME")
+            )
+            .andExpect(
+                jsonPath("$.message")
+                    .value("이미 사용 중인 닉네임입니다.")
+            );
     }
 
     @Test

@@ -22,7 +22,7 @@ public class User {
     private String loginId;
 
     // 앱 내부에 표시할 닉네임
-    @Column(length = 20)
+    @Column(length = 20, unique = true)
     private String nickname;
     
     @Column(nullable = false)

@@ -34,6 +34,12 @@ public enum ErrorCode {
         "이미 사용 중인 아이디입니다."
     ),
 
+    DUPLICATE_NICKNAME(
+        HttpStatus.CONFLICT,
+        "DUPLICATE_NICKNAME",
+        "이미 사용 중인 닉네임입니다."
+    ),
+
     USER_NOT_FOUND(
         HttpStatus.NOT_FOUND,
         "USER_NOT_FOUND",

@@ -8,6 +8,7 @@ import com.tripbler.backend.user.dto.UserNicknameChangeRequest;
 import com.tripbler.backend.user.entity.User;
 import com.tripbler.backend.user.exception.CurrentPasswordMismatchException;
 import com.tripbler.backend.user.exception.DuplicateLoginIdException;
+import com.tripbler.backend.user.exception.DuplicateNicknameException;
 import com.tripbler.backend.user.exception.UserNotFoundException;
 import com.tripbler.backend.user.repository.UserRepository;
 
@@ -34,6 +35,11 @@ public class UserService {
 
         if (userRepository.findByLoginId(request.loginId()).isPresent()) {
             throw new DuplicateLoginIdException();
+        }
+
+        if (request.nickname() != null &&
+            userRepository.existsByNickname(request.nickname())) {
+            throw new DuplicateNicknameException();
         }
 
         String encodedPassword =
@@ -77,6 +83,13 @@ public class UserService {
         UserNicknameChangeRequest request
     ) {
         User user = getUserOrThrow(userId);
+
+        if (userRepository.existsByNicknameAndIdNot(
+            request.nickname(),
+            userId
+        )) {
+            throw new DuplicateNicknameException();
+        }
 
         user.changeNickname(
             request.nickname()
