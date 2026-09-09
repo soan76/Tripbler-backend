@@ -6,7 +6,9 @@ import com.tripbler.backend.user.dto.UserResponse;
 import com.tripbler.backend.user.entity.User;
 import com.tripbler.backend.user.dto.UserNicknameChangeRequest;
 import com.tripbler.backend.user.exception.DuplicateNicknameException;
+import com.tripbler.backend.user.exception.DuplicateUserFieldException;
 import com.tripbler.backend.user.repository.UserRepository;
+import com.tripbler.backend.user.storage.ProfileImageStorage;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.Optional;
 
@@ -35,13 +38,18 @@ class UserServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private ProfileImageStorage profileImageStorage;
+
     private UserService userService;
 
     @BeforeEach
     void setUp() {
         userService = new UserService(
             userRepository,
-            passwordEncoder
+            passwordEncoder,
+            new UserFinder(userRepository),
+            profileImageStorage
         );
     }
 
@@ -109,8 +117,13 @@ class UserServiceTest {
         when(passwordEncoder.encode(request.password()))
             .thenReturn("encodedPassword");
 
-        when(userRepository.save(any(User.class)))
-            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(
+            userRepository.saveAndFlush(
+                any(User.class)
+            )
+        ).thenAnswer(
+            invocation -> invocation.getArgument(0)
+        );
 
         // when
         UserResponse response =
@@ -122,6 +135,56 @@ class UserServiceTest {
 
         assertThat(response.nickname())
             .isNull();
+    }
+
+    @Test
+    void getUserByIdReturnsProfileImageUrl() {
+
+        // given
+        Long userId = 1L;
+
+        User user = new User(
+            "testuser01",
+            "여행자",
+            "encodedPassword"
+        );
+
+        String imageKey =
+            "profiles/1/profile.jpg";
+
+        String imageUrl =
+            "http://localhost:8080/uploads/"
+                + imageKey;
+
+        user.changeProfileImageKey(
+            imageKey
+        );
+
+        when(userRepository.findById(userId))
+            .thenReturn(Optional.of(user));
+
+        when(
+            profileImageStorage.resolveUrl(
+                imageKey
+            )
+        ).thenReturn(imageUrl);
+
+        // when
+        UserResponse response =
+            userService.getUserById(userId);
+
+        // then
+        assertThat(response.loginId())
+            .isEqualTo("testuser01");
+
+        assertThat(response.nickname())
+            .isEqualTo("여행자");
+
+        assertThat(response.profileImageUrl())
+            .isEqualTo(imageUrl);
+
+        verify(profileImageStorage)
+            .resolveUrl(imageKey);
     }
 
     @Test
@@ -140,8 +203,13 @@ class UserServiceTest {
         when(passwordEncoder.encode(request.password()))
             .thenReturn("encodedPassword");
 
-        when(userRepository.save(any(User.class)))
-            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(
+            userRepository.saveAndFlush(
+                any(User.class)
+            )
+        ).thenAnswer(
+            invocation -> invocation.getArgument(0)
+        );
 
         // when
         UserResponse response =
@@ -177,8 +245,67 @@ class UserServiceTest {
         )
             .isInstanceOf(DuplicateNicknameException.class);
 
-        verify(userRepository, never())
-            .save(any(User.class));
+        verify(
+            userRepository,
+            never()
+        ).saveAndFlush(
+            any(User.class)
+        );
+    }
+
+    @Test
+    void createUserConvertsDatabaseUniqueViolationToDuplicateUserFieldException() {
+
+        // given
+        UserCreateRequest request =
+            new UserCreateRequest(
+                "newuser01",
+                "여행러버",
+                "password123"
+            );
+
+        when(
+            userRepository.findByLoginId(
+                request.loginId()
+            )
+        ).thenReturn(
+            Optional.empty()
+        );
+
+        when(
+            userRepository.existsByNickname(
+                request.nickname()
+            )
+        ).thenReturn(false);
+
+        when(
+            passwordEncoder.encode(
+                request.password()
+            )
+        ).thenReturn(
+            "encodedPassword"
+        );
+
+        when(
+            userRepository.saveAndFlush(
+                any(User.class)
+            )
+        ).thenThrow(
+            new DataIntegrityViolationException(
+                "unique constraint violation"
+            )
+        );
+
+        // when & then
+        assertThatThrownBy(
+            () -> userService.createUser(request)
+        )
+            .isInstanceOf(
+                DuplicateUserFieldException.class
+            );
+
+        verify(userRepository)
+            .saveAndFlush(any(User.class));
     }
 
     @Test

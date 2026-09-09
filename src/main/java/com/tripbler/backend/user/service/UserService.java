@@ -9,25 +9,33 @@ import com.tripbler.backend.user.entity.User;
 import com.tripbler.backend.user.exception.CurrentPasswordMismatchException;
 import com.tripbler.backend.user.exception.DuplicateLoginIdException;
 import com.tripbler.backend.user.exception.DuplicateNicknameException;
-import com.tripbler.backend.user.exception.UserNotFoundException;
+import com.tripbler.backend.user.exception.DuplicateUserFieldException;
 import com.tripbler.backend.user.repository.UserRepository;
+import com.tripbler.backend.user.storage.ProfileImageStorage;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserFinder userFinder;
+    private final ProfileImageStorage profileImageStorage;
 
     public UserService(
         UserRepository userRepository,
-        PasswordEncoder passwordEncoder
+        PasswordEncoder passwordEncoder,
+        UserFinder userFinder,
+        ProfileImageStorage profileImageStorage
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.userFinder = userFinder;
+        this.profileImageStorage = profileImageStorage;
     }
 
     @Transactional
@@ -51,9 +59,18 @@ public class UserService {
             encodedPassword
         );
 
-        User savedUser = userRepository.save(user);
+        try {
+            User savedUser =
+                userRepository.saveAndFlush(user);
 
-        return UserResponse.from(savedUser);
+            return UserResponse.from(savedUser);
+        } catch (
+            DataIntegrityViolationException exception
+        ) {
+            throw new DuplicateUserFieldException(
+                exception
+            );
+        }
     }
 
     @Transactional(readOnly = true)
@@ -72,9 +89,10 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserResponse getUserById(Long userId) {
 
-        User user = getUserOrThrow(userId);
+        User user =
+            userFinder.getById(userId);
 
-        return UserResponse.from(user);
+        return toUserResponse(user);
     }
 
     @Transactional
@@ -82,7 +100,7 @@ public class UserService {
         Long userId,
         UserNicknameChangeRequest request
     ) {
-        User user = getUserOrThrow(userId);
+        User user = userFinder.getById(userId);
 
         if (userRepository.existsByNicknameAndIdNot(
             request.nickname(),
@@ -95,7 +113,17 @@ public class UserService {
             request.nickname()
         );
 
-        return UserResponse.from(user);
+        try {
+            userRepository.flush();
+        } catch (
+            DataIntegrityViolationException exception
+        ) {
+            throw new DuplicateNicknameException(
+                exception
+            );
+        }
+
+        return toUserResponse(user);
     }
 
     @Transactional
@@ -103,7 +131,7 @@ public class UserService {
         Long userId,
         UserPasswordChangeRequest request
     ) {
-        User user = getUserOrThrow(userId);
+        User user = userFinder.getById(userId);
 
         if (!passwordEncoder.matches(
             request.currentPassword(),
@@ -122,8 +150,17 @@ public class UserService {
         );
     }
 
-     private User getUserOrThrow(Long userId) {
-        return userRepository.findById(userId)
-            .orElseThrow(UserNotFoundException::new);
+    private UserResponse toUserResponse(
+        User user
+    ) {
+        String profileImageUrl =
+            profileImageStorage.resolveUrl(
+                user.getProfileImageKey()
+            );
+
+        return UserResponse.from(
+            user,
+            profileImageUrl
+        );
     }
 }

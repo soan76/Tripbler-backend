@@ -73,6 +73,12 @@ public class SecurityConfig {
                         "/api/v1/translation/**"
                     ).permitAll()
 
+                    // 프로필 이미지 정적 리소스는 인증 없이 조회할 수 있다.
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/uploads/**"
+                    ).permitAll()
+
                     .requestMatchers(
                         "/api/v1/admin/**"
                     ).hasRole("ADMIN")

@@ -46,6 +46,12 @@ public enum ErrorCode {
         "사용자를 찾을 수 없습니다."
     ),
 
+    RESOURCE_NOT_FOUND(
+        HttpStatus.NOT_FOUND,
+        "RESOURCE_NOT_FOUND",
+        "요청한 리소스를 찾을 수 없습니다."
+    ),
+
     INVALID_CREDENTIALS(
         HttpStatus.UNAUTHORIZED,
         "INVALID_CREDENTIALS",
@@ -62,6 +68,12 @@ public enum ErrorCode {
         HttpStatus.BAD_REQUEST,
         "NEW_PASSWORD_SAME_AS_CURRENT",
         "새 비밀번호는 현재 비밀번호와 다르게 설정해 주세요."
+    ),
+
+    DUPLICATE_USER_FIELD(
+        HttpStatus.CONFLICT,
+        "DUPLICATE_USER_FIELD",
+        "이미 사용 중인 아이디 또는 닉네임입니다."
     ),
 
     UNAUTHORIZED(
@@ -122,6 +134,18 @@ public enum ErrorCode {
         HttpStatus.BAD_REQUEST,
         "INVALID_FIND_ID_VERIFICATION_CODE",
         "인증코드가 맞지 않습니다."
+    ),
+
+    INVALID_PROFILE_IMAGE(
+        HttpStatus.BAD_REQUEST,
+        "INVALID_PROFILE_IMAGE",
+        "올바르지 않은 프로필 이미지입니다."
+    ),
+
+    PROFILE_IMAGE_STORAGE_FAILED(
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        "PROFILE_IMAGE_STORAGE_FAILED",
+        "프로필 이미지 처리에 실패했습니다."
     ),
 
     EXPIRED_FIND_ID_VERIFICATION_CODE(

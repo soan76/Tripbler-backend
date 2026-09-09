@@ -24,6 +24,10 @@ public class User {
     // 앱 내부에 표시할 닉네임
     @Column(length = 20, unique = true)
     private String nickname;
+
+    // 프로필 이미지가 저장된 위치를 식별하는 저장소 키
+    @Column(length = 500)
+    private String profileImageKey;
     
     @Column(nullable = false)
     private String password;
@@ -58,6 +62,10 @@ public class User {
         return nickname;
     }
 
+    public String getProfileImageKey() {
+        return profileImageKey;
+    }
+
     public String getPassword() {
         return password;
     }
@@ -68,6 +76,12 @@ public class User {
 
     public void changeNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public void changeProfileImageKey(
+        String profileImageKey
+    ) {
+        this.profileImageKey = profileImageKey;
     }
 
     public void changePassword(String encodedPassword) {

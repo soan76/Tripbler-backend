@@ -3,19 +3,15 @@ package com.tripbler.backend.user.exception;
 import com.tripbler.backend.common.exception.BusinessException;
 import com.tripbler.backend.common.exception.ErrorCode;
 
-public class DuplicateNicknameException
+public class DuplicateUserFieldException
     extends BusinessException {
 
-    public DuplicateNicknameException() {
-        super(ErrorCode.DUPLICATE_NICKNAME);
-    }
-
-    public DuplicateNicknameException(
+    public DuplicateUserFieldException(
         Throwable cause
     ) {
         super(
-            ErrorCode.DUPLICATE_NICKNAME,
-            ErrorCode.DUPLICATE_NICKNAME
+            ErrorCode.DUPLICATE_USER_FIELD,
+            ErrorCode.DUPLICATE_USER_FIELD
                 .getMessage(),
             cause
         );

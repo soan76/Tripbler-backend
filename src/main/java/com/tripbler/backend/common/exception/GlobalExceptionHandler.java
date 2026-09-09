@@ -12,6 +12,8 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -28,12 +30,22 @@ public class GlobalExceptionHandler {
     ) {
         ErrorCode errorCode = exception.getErrorCode();
 
-        log.warn(
-            "Business exception: code={}, message={}, path={}",
-            errorCode.getCode(),
-            exception.getMessage(),
-            request.getRequestURI()
-        );
+        if (errorCode.getStatus().is5xxServerError()) {
+            log.error(
+                "Business exception: code={}, message={}, path={}",
+                errorCode.getCode(),
+                exception.getMessage(),
+                request.getRequestURI(),
+                exception
+            );
+        } else {
+            log.warn(
+                "Business exception: code={}, message={}, path={}",
+                errorCode.getCode(),
+                exception.getMessage(),
+                request.getRequestURI()
+            );
+        }
 
         ErrorResponse response = ErrorResponse.of(
             errorCode,
@@ -46,7 +58,7 @@ public class GlobalExceptionHandler {
             .body(response);
     }
 
-    // 1. 환율 @RequestParam + @Pattern 처리
+    // 메서드 파라미터 검증 오류를 처리한다.
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ResponseEntity<ErrorResponse> handleMethodValidationException(
         HandlerMethodValidationException exception,
@@ -74,7 +86,7 @@ public class GlobalExceptionHandler {
             .badRequest()
             .body(response);
     }
-    // 2. 번역 @Valid @RequestBody 처리
+    // @Valid 요청 본문 검증 오류를 처리한다.
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(
         MethodArgumentNotValidException exception,
@@ -112,6 +124,42 @@ public class GlobalExceptionHandler {
         ErrorResponse response = ErrorResponse.of(
             ErrorCode.INVALID_REQUEST,
             exception.getMessage(),
+            request.getRequestURI()
+        );
+
+        return ResponseEntity
+            .badRequest()
+            .body(response);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFoundException(
+        NoResourceFoundException exception,
+        HttpServletRequest request
+    ) {
+        ErrorResponse response = ErrorResponse.of(
+            ErrorCode.RESOURCE_NOT_FOUND,
+            request.getRequestURI()
+        );
+
+        return ResponseEntity
+            .status(ErrorCode.RESOURCE_NOT_FOUND.getStatus())
+            .body(response);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse>
+        handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException exception,
+            HttpServletRequest request
+        ) {
+
+        String message =
+            "프로필 이미지는 5MB 이하만 업로드할 수 있습니다.";
+
+        ErrorResponse response = ErrorResponse.of(
+            ErrorCode.INVALID_PROFILE_IMAGE,
+            message,
             request.getRequestURI()
         );
 

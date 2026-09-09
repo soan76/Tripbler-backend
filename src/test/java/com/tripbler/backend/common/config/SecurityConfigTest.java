@@ -21,6 +21,7 @@ import com.tripbler.backend.admin.controller.AdminController;
 import com.tripbler.backend.common.security.CustomAccessDeniedHandler;
 import com.tripbler.backend.common.security.CustomAuthenticationEntryPoint;
 import com.tripbler.backend.user.controller.UserController;
+import com.tripbler.backend.user.service.ProfileImageService;
 import com.tripbler.backend.user.service.UserService;
 import com.tripbler.backend.auth.service.AccountDeletionService;
 
@@ -40,6 +41,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private ProfileImageService profileImageService;
 
     @MockitoBean
     private AccountDeletionService accountDeletionService;

@@ -5,6 +5,7 @@ import com.tripbler.backend.user.dto.UserCreateRequest;
 import com.tripbler.backend.user.dto.UserPasswordChangeRequest;
 import com.tripbler.backend.user.dto.UserResponse;
 import com.tripbler.backend.user.dto.UserNicknameChangeRequest;
+import com.tripbler.backend.user.service.ProfileImageService;
 import com.tripbler.backend.user.service.UserService;
 import com.tripbler.backend.auth.service.AccountDeletionService;
 
@@ -22,19 +23,25 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/users")
 public class UserController {
 
     private final UserService userService;
+    private final ProfileImageService profileImageService;
     private final AccountDeletionService accountDeletionService;
 
     public UserController(
         UserService userService,
+        ProfileImageService profileImageService,
         AccountDeletionService accountDeletionService
     ) {
         this.userService = userService;
+        this.profileImageService = profileImageService;
         this.accountDeletionService = accountDeletionService;
     }
     
@@ -68,6 +75,36 @@ public class UserController {
         return userService.changeNickname(
             userId,
             request
+        );
+    }
+
+    // 현재 로그인 사용자의 프로필 이미지를 등록하거나 교체한다.
+    @PutMapping(
+        value = "/me/profile-image",
+        consumes = "multipart/form-data"
+    )
+    public UserResponse updateProfileImage(
+        @AuthenticationPrincipal Jwt jwt,
+        @RequestPart("file") MultipartFile file
+    ) {
+        Long userId = currentUserId(jwt);
+
+        return profileImageService.updateProfileImage(
+            userId,
+            file
+        );
+    }
+
+    // 현재 로그인 사용자의 프로필 이미지를 삭제한다.
+    @DeleteMapping("/me/profile-image")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteProfileImage(
+        @AuthenticationPrincipal Jwt jwt
+    ) {
+        Long userId = currentUserId(jwt);
+
+        profileImageService.deleteProfileImage(
+            userId
         );
     }
 
