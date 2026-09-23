@@ -3,6 +3,7 @@ package com.tripbler.backend.exchange.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -13,6 +14,8 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -21,6 +24,8 @@ import com.tripbler.backend.common.exception.BusinessException;
 import com.tripbler.backend.common.exception.ErrorCode;
 import com.tripbler.backend.exchange.client.ExchangeRateClient;
 import com.tripbler.backend.exchange.dto.ExchangeRateResponse;
+import com.tripbler.backend.exchange.dto.HistoricalRateResponse;
+import com.tripbler.backend.exchange.dto.HistoricalRatePoint;
 
 @ExtendWith(MockitoExtension.class)
 class ExchangeServiceTest {
@@ -158,6 +163,41 @@ class ExchangeServiceTest {
             ErrorCode.TARGET_CURRENCY_REQUIRED,
             exception.getErrorCode()
         );
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "2023-03-01, 2024-03-01",
+        "2022-03-01, 2024-03-01",
+        "2019-03-01, 2024-03-01",
+        "2019-02-28, 2024-02-29"
+    })
+    void supportsChartPeriodsIncludingLeapYears(LocalDate start, LocalDate end) {
+        HistoricalRateResponse expected = new HistoricalRateResponse(
+            "KRW", "USD", start, end,
+            List.of(new HistoricalRatePoint(end, new BigDecimal("0.0007"))),
+            LocalDateTime.of(2024, 3, 1, 12, 0)
+        );
+        when(exchangeRateClient.getHistoricalRates("KRW", "USD", start, end))
+            .thenReturn(expected);
+
+        assertEquals(expected,
+            exchangeService.getHistoricalRates("KRW", "USD", start, end));
+        verify(exchangeRateClient).getHistoricalRates("KRW", "USD", start, end);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "2019-02-28, 2024-03-01",
+        "2019-02-27, 2024-02-29"
+    })
+    void rejectsPeriodsBeyondFiveYears(LocalDate start, LocalDate end) {
+        BusinessException exception = assertThrows(BusinessException.class,
+            () -> exchangeService.getHistoricalRates("KRW", "USD", start, end));
+
+        assertEquals(ErrorCode.INVALID_REQUEST, exception.getErrorCode());
+        assertEquals("기간별 환율은 최대 5년까지 조회할 수 있습니다.", exception.getMessage());
+        verifyNoInteractions(exchangeRateClient);
     }
 
     private ExchangeRateResponse createResponse() {

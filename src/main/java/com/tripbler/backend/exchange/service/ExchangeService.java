@@ -1,7 +1,6 @@
 package com.tripbler.backend.exchange.service;
 
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -17,7 +16,7 @@ import com.tripbler.backend.exchange.dto.HistoricalRateResponse;
 @Service
 public class ExchangeService {
 
-    private static final long MAX_HISTORY_DAYS = 366;
+    private static final int MAX_HISTORY_YEARS = 5;
 
     private final ExchangeRateClient exchangeRateClient;
 
@@ -107,16 +106,12 @@ public class ExchangeService {
             );
         }
 
-        long requestedDays =
-            ChronoUnit.DAYS.between(
-                startDate,
-                endDate
-            ) + 1;
-
-        if (requestedDays > MAX_HISTORY_DAYS) {
+        // 앱의 최장 차트 기간과 동일하게 달력 기준 5년을 허용한다.
+        // 일수로 제한하면 윤년이 포함된 기간의 경계가 달라진다.
+        if (startDate.isBefore(endDate.minusYears(MAX_HISTORY_YEARS))) {
             throw new BusinessException(
                 ErrorCode.INVALID_REQUEST,
-                "기간별 환율은 최대 366일까지 조회할 수 있습니다."
+                "기간별 환율은 최대 5년까지 조회할 수 있습니다."
             );
         }
     }
