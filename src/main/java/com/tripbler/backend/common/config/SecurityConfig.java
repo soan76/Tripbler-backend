@@ -65,6 +65,12 @@ public class SecurityConfig {
                         "/api/v1/exchange/**"
                     ).permitAll()
 
+                    // 암호화폐 현재가/History 조회는 기존 환율 조회처럼 공개한다.
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/v1/crypto/**"
+                    ).permitAll()
+
                     .requestMatchers(
                         "/api/v1/places/**"
                     ).permitAll()

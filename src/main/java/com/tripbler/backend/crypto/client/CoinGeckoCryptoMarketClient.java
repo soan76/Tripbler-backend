@@ -2,7 +2,7 @@ package com.tripbler.backend.crypto.client;
 
 import java.math.BigDecimal;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
 import java.util.List;
@@ -19,6 +19,7 @@ import com.tripbler.backend.common.exception.BusinessException;
 import com.tripbler.backend.common.exception.ErrorCode;
 import com.tripbler.backend.crypto.config.CoinGeckoProperties;
 import com.tripbler.backend.crypto.dto.CryptoPriceResponse;
+import com.tripbler.backend.crypto.domain.CryptoCoin;
 import com.tripbler.backend.crypto.dto.CryptoHistoryPeriod;
 import com.tripbler.backend.crypto.dto.CryptoHistoryPoint;
 import com.tripbler.backend.crypto.dto.CryptoHistoryResponse;
@@ -50,7 +51,8 @@ public class CoinGeckoCryptoMarketClient implements CryptoMarketClient {
     }
 
     @Override
-    public CryptoPriceResponse getCurrentPrice(String coin, String currency) {
+    public CryptoPriceResponse getCurrentPrice(CryptoCoin coin, String currency) {
+        String coinId = coin.coinGeckoId();
         String apiKey = properties.getApiKey();
         if (apiKey == null || apiKey.isBlank()) {
             throw unavailable();
@@ -60,7 +62,7 @@ public class CoinGeckoCryptoMarketClient implements CryptoMarketClient {
         try {
             Map<String, Map<String, BigDecimal>> response = restClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/simple/price")
-                    .queryParam("ids", coin)
+                    .queryParam("ids", coinId)
                     .queryParam("vs_currencies", quoteCurrency)
                     .build())
                 .header("x-cg-demo-api-key", apiKey.trim())
@@ -70,14 +72,14 @@ public class CoinGeckoCryptoMarketClient implements CryptoMarketClient {
                 })
                 .body(PRICE_TYPE);
 
-            Map<String, BigDecimal> prices = response == null ? null : response.get(coin);
+            Map<String, BigDecimal> prices = response == null ? null : response.get(coinId);
             BigDecimal price = prices == null ? null : prices.get(quoteCurrency);
             if (price == null || price.signum() <= 0) {
                 throw unavailable();
             }
 
             return new CryptoPriceResponse(
-                coin, currency.toUpperCase(Locale.ROOT), price, LocalDateTime.now()
+                coin.symbol(), currency.toUpperCase(Locale.ROOT), price, Instant.now()
             );
         } catch (RestClientException exception) {
             // 외부 응답 본문/인증 정보가 공통 오류 응답이나 예외 로그에 섞이지 않게 한다.
@@ -86,7 +88,8 @@ public class CoinGeckoCryptoMarketClient implements CryptoMarketClient {
     }
 
     @Override
-    public CryptoHistoryResponse getHistoricalPrices(String coin, String currency, CryptoHistoryPeriod period) {
+    public CryptoHistoryResponse getHistoricalPrices(CryptoCoin coin, String currency, CryptoHistoryPeriod period) {
+        String coinId = coin.coinGeckoId();
         String apiKey = properties.getApiKey();
         if (apiKey == null || apiKey.isBlank()) {
             throw unavailable();
@@ -101,7 +104,7 @@ public class CoinGeckoCryptoMarketClient implements CryptoMarketClient {
                     .queryParam("vs_currency", currency.toLowerCase(Locale.ROOT))
                     .queryParam("days", period.days())
                     // interval을 생략하여 Demo의 자동 간격을 사용한다.
-                    .build(coin))
+                    .build(coinId))
                 .header("x-cg-demo-api-key", apiKey.trim())
                 .retrieve()
                 .onStatus(status -> status.isError(), (request, providerResponse) -> {
@@ -129,8 +132,8 @@ public class CoinGeckoCryptoMarketClient implements CryptoMarketClient {
             }
 
             return new CryptoHistoryResponse(
-                coin, currency.toUpperCase(Locale.ROOT), period.code(), period.days(),
-                List.copyOf(points.values()), LocalDateTime.now()
+                coin.symbol(), currency.toUpperCase(Locale.ROOT), period.code(), period.days(),
+                List.copyOf(points.values()), Instant.now()
             );
         } catch (RestClientException | ArithmeticException exception) {
             // 제공자의 오류 본문이나 인증 정보를 공통 오류에 노출하지 않는다.

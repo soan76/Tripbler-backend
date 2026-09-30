@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.tripbler.backend.crypto.dto.CryptoPriceResponse;
 import com.tripbler.backend.crypto.dto.CryptoHistoryResponse;
+import com.tripbler.backend.crypto.dto.CryptoCoinResponse;
+import java.util.List;
 import com.tripbler.backend.crypto.service.CryptoService;
 
 @RestController
@@ -18,9 +20,14 @@ public class CryptoController {
         this.cryptoService = cryptoService;
     }
 
+    @GetMapping("/coins")
+    public List<CryptoCoinResponse> getCoins() {
+        return cryptoService.getSupportedCoins();
+    }
+
     @GetMapping("/history")
     public CryptoHistoryResponse getHistory(
-        @RequestParam(defaultValue = "bitcoin") String coin,
+        @RequestParam(defaultValue = "BTC") String coin,
         @RequestParam(defaultValue = "KRW") String currency,
         @RequestParam(defaultValue = "7D") String period
     ) {
@@ -29,7 +36,7 @@ public class CryptoController {
 
     @GetMapping("/price")
     public CryptoPriceResponse getPrice(
-        @RequestParam(defaultValue = "bitcoin") String coin,
+        @RequestParam(defaultValue = "BTC") String coin,
         @RequestParam(defaultValue = "KRW") String currency
     ) {
         return cryptoService.getCurrentPrice(coin, currency);

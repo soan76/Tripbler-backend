@@ -4,7 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import com.tripbler.backend.crypto.domain.CryptoCoin;
+import java.time.Instant;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -17,18 +18,18 @@ import com.tripbler.backend.crypto.dto.CryptoPriceResponse;
 
 class CryptoServiceTest {
     private final CryptoMarketClient client = mock(CryptoMarketClient.class);
-    private final CryptoService service = new CryptoService(client);
+    private final CryptoService service = new CryptoService(client, new CryptoResponseCache(new com.tripbler.backend.crypto.config.CryptoCacheProperties()));
 
     @Test
     void normalizesInputAndDelegatesToInterface() {
-        var expected = new CryptoPriceResponse("bitcoin", "KRW", new BigDecimal("100000000"), LocalDateTime.now());
-        when(client.getCurrentPrice("bitcoin", "KRW")).thenReturn(expected);
+        var expected = new CryptoPriceResponse("BTC", "KRW", new BigDecimal("100000000"), Instant.now());
+        when(client.getCurrentPrice(CryptoCoin.BTC, "KRW")).thenReturn(expected);
         assertSame(expected, service.getCurrentPrice(" Bitcoin ", " krw "));
-        verify(client).getCurrentPrice("bitcoin", "KRW");
+        verify(client).getCurrentPrice(CryptoCoin.BTC, "KRW");
     }
 
     @ParameterizedTest
-    @CsvSource({"ethereum,KRW", "bitcoin,USD", "bitcoin, ", " ,KRW", "'',KRW", "'bitcoin,ethereum',KRW"})
+    @CsvSource({"LTC,KRW", "bitcoin,USD", "bitcoin, ", " ,KRW", "'',KRW", "'bitcoin,ethereum',KRW"})
     void rejectsUnsupportedOrEmptyInputBeforeCallingProvider(String coin, String currency) {
         var error = assertThrows(BusinessException.class, () -> service.getCurrentPrice(coin, currency));
         assertEquals(ErrorCode.INVALID_REQUEST, error.getErrorCode());

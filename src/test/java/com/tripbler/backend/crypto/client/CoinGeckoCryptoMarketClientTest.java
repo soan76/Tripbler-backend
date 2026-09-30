@@ -5,6 +5,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 import java.math.BigDecimal;
+import com.tripbler.backend.crypto.domain.CryptoCoin;
 import java.net.SocketTimeoutException;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -47,8 +48,8 @@ class CoinGeckoCryptoMarketClientTest {
                 MediaType.APPLICATION_JSON
             ));
 
-        var result = client.getCurrentPrice("bitcoin", "KRW");
-        assertEquals("bitcoin", result.coin());
+        var result = client.getCurrentPrice(CryptoCoin.BTC, "KRW");
+        assertEquals("BTC", result.symbol());
         assertEquals("KRW", result.currency());
         assertEquals(new BigDecimal("123456789.123456789"), result.price());
         assertNotNull(result.fetchedAt());
@@ -92,7 +93,7 @@ class CoinGeckoCryptoMarketClientTest {
 
     private void assertUnavailable() {
         BusinessException error = assertThrows(BusinessException.class,
-            () -> client.getCurrentPrice("bitcoin", "KRW"));
+            () -> client.getCurrentPrice(CryptoCoin.BTC, "KRW"));
         assertEquals(ErrorCode.CRYPTO_PROVIDER_UNAVAILABLE, error.getErrorCode());
         assertEquals(ErrorCode.CRYPTO_PROVIDER_UNAVAILABLE.getMessage(), error.getMessage());
         assertNull(error.getCause());
