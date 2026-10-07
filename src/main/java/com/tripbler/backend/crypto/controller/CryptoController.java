@@ -29,9 +29,14 @@ public class CryptoController {
     public CryptoHistoryResponse getHistory(
         @RequestParam(defaultValue = "BTC") String coin,
         @RequestParam(defaultValue = "KRW") String currency,
-        @RequestParam(defaultValue = "7D") String period
+        @RequestParam(defaultValue = "7D") String period,
+        @RequestParam(defaultValue = "300") @jakarta.validation.constraints.Min(16)
+        @jakarta.validation.constraints.Max(1000) int maxPoints
     ) {
-        return cryptoService.getHistoricalPrices(coin, currency, period);
+        var response = cryptoService.getHistoricalPrices(coin, currency, period);
+        return new CryptoHistoryResponse(response.symbol(), response.currency(), response.period(), response.days(),
+            com.tripbler.backend.common.chart.HistoryDownsampler.reduce(response.prices(), maxPoints, point -> point.price().doubleValue()),
+            response.fetchedAt(), response.stale());
     }
 
     @GetMapping("/price")

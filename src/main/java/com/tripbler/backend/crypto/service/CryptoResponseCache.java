@@ -1,10 +1,6 @@
 package com.tripbler.backend.crypto.service;
 
 import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,16 +22,8 @@ import com.tripbler.backend.crypto.domain.CryptoCoin;
 public class CryptoResponseCache {
     private record PriceKey(CryptoCoin coin, String currency) {}
     private record HistoryKey(CryptoCoin coin, String currency, CryptoHistoryPeriod period) {}
-    private record Entry<T>(T response, Instant expiresAt) {}
-    private static final class Slot<T> {
-        private Entry<T> entry;
-    }
-
-    private final ConcurrentHashMap<PriceKey, Slot<CryptoPriceResponse>> prices = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<HistoryKey, Slot<CryptoHistoryResponse>> histories = new ConcurrentHashMap<>();
-    private final Duration priceTtl;
-    private final Duration historyTtl;
-    private final Clock clock;
+    private final com.tripbler.backend.common.cache.TimeoutFallbackCache<PriceKey, CryptoPriceResponse> prices;
+    private final com.tripbler.backend.common.cache.TimeoutFallbackCache<HistoryKey, CryptoHistoryResponse> histories;
 
     @Autowired
     public CryptoResponseCache(CryptoCacheProperties properties) {
@@ -43,33 +31,19 @@ public class CryptoResponseCache {
     }
 
     CryptoResponseCache(CryptoCacheProperties properties, Clock clock) {
-        this.priceTtl = properties.getPriceTtl();
-        this.historyTtl = properties.getHistoryTtl();
-        this.clock = clock;
+        prices = new com.tripbler.backend.common.cache.TimeoutFallbackCache<>(clock,
+            properties.getPriceTtl(), properties.getPriceStaleWindow(), 64);
+        histories = new com.tripbler.backend.common.cache.TimeoutFallbackCache<>(clock,
+            properties.getHistoryTtl(), properties.getHistoryStaleWindow(), 64);
     }
 
     public CryptoPriceResponse getPrice(CryptoCoin coin, String currency, Supplier<CryptoPriceResponse> loader) {
-        return get(prices, new PriceKey(coin, currency), priceTtl, loader);
+        return prices.get(new PriceKey(coin, currency), loader, CryptoPriceResponse::asStale);
     }
 
     public CryptoHistoryResponse getHistory(CryptoCoin coin, String currency, CryptoHistoryPeriod period,
                                            Supplier<CryptoHistoryResponse> loader) {
-        return get(histories, new HistoryKey(coin, currency, period), historyTtl, loader);
+        return histories.get(new HistoryKey(coin, currency, period), loader, CryptoHistoryResponse::asStale);
     }
 
-    private <K, T> T get(ConcurrentHashMap<K, Slot<T>> cache, K key, Duration ttl, Supplier<T> loader) {
-        // 외부 통신을 map.compute 안에서 실행하지 않는다. 해시 버킷 충돌 시에도
-        // 다른 코인/기간 조회를 막지 않도록 실제 로딩은 키별 잠금으로 분리한다.
-        Slot<T> slot = cache.computeIfAbsent(key, ignored -> new Slot<>());
-        synchronized (slot) {
-            Entry<T> previous = slot.entry;
-            if (previous != null && clock.instant().isBefore(previous.expiresAt())) {
-                return previous.response();
-            }
-            // 예외 발생 시 새 항목은 저장되지 않는다. 만료된 항목도 성공 응답으로 반환하지 않는다.
-            T response = Objects.requireNonNull(loader.get());
-            slot.entry = new Entry<>(response, clock.instant().plus(ttl));
-            return response;
-        }
-    }
 }

@@ -106,7 +106,7 @@ class CoinGeckoCryptoHistoryClientTest {
     void timeoutUsesSafeCommonError() {
         server.expect(requestTo(url(CryptoHistoryPeriod.SEVEN_DAYS)))
             .andRespond(withException(new SocketTimeoutException("timeout")));
-        assertUnavailable();
+        assertUnavailable(true);
         server.verify();
     }
 
@@ -117,11 +117,19 @@ class CoinGeckoCryptoHistoryClientTest {
         server.verify();
     }
 
-    private void assertUnavailable() {
+    private void assertUnavailable() { assertUnavailable(false); }
+
+    private void assertUnavailable(boolean timeout) {
         var error = assertThrows(BusinessException.class,
             () -> client.getHistoricalPrices(CryptoCoin.BTC, "KRW", CryptoHistoryPeriod.SEVEN_DAYS));
         assertEquals(ErrorCode.CRYPTO_PROVIDER_UNAVAILABLE, error.getErrorCode());
         assertEquals(ErrorCode.CRYPTO_PROVIDER_UNAVAILABLE.getMessage(), error.getMessage());
-        assertNull(error.getCause());
+        if (timeout) {
+            assertInstanceOf(SocketTimeoutException.class, error.getCause());
+            assertEquals("Provider timeout", error.getCause().getMessage());
+            assertNull(error.getCause().getCause());
+        } else {
+            assertNull(error.getCause());
+        }
     }
 }

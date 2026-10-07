@@ -9,6 +9,10 @@ public record ExchangeRateResponse(
     String baseCurrency,
     Map<String, BigDecimal> rates,
     LocalDate rateDate,
-    LocalDateTime fetchedAt
+    LocalDateTime fetchedAt,
+    boolean stale
 ) {
+    public ExchangeRateResponse(String baseCurrency, Map<String, BigDecimal> rates, LocalDate rateDate, LocalDateTime fetchedAt) { this(baseCurrency, rates, rateDate, fetchedAt, false); }
+    public ExchangeRateResponse asStale() { return new ExchangeRateResponse(baseCurrency, rates, rateDate, fetchedAt, true); }
+
 }

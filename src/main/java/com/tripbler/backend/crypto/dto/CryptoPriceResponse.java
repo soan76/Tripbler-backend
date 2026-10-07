@@ -8,6 +8,10 @@ public record CryptoPriceResponse(
     String symbol,
     String currency,
     BigDecimal price,
-    Instant fetchedAt
+    Instant fetchedAt,
+    boolean stale
 ) {
+    public CryptoPriceResponse(String symbol, String currency, BigDecimal price, Instant fetchedAt) { this(symbol, currency, price, fetchedAt, false); }
+    public CryptoPriceResponse asStale() { return new CryptoPriceResponse(symbol, currency, price, fetchedAt, true); }
+
 }

@@ -19,11 +19,16 @@ public class ExchangeService {
     private static final int MAX_HISTORY_YEARS = 5;
 
     private final ExchangeRateClient exchangeRateClient;
+    private final ExchangeResponseCache cache;
 
-    public ExchangeService(
-        ExchangeRateClient exchangeRateClient
-    ) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public ExchangeService(ExchangeRateClient exchangeRateClient, ExchangeResponseCache cache) {
         this.exchangeRateClient = exchangeRateClient;
+        this.cache = cache == null ? new ExchangeResponseCache() : cache;
+    }
+
+    public ExchangeService(ExchangeRateClient exchangeRateClient) {
+        this(exchangeRateClient, new ExchangeResponseCache());
     }
 
     public ExchangeRateResponse getRates(
@@ -39,10 +44,8 @@ public class ExchangeService {
                 normalizedBase
             );
 
-        return exchangeRateClient.getLatestRates(
-            normalizedBase,
-            targetCurrencies
-        );
+        return cache.latest(normalizedBase, targetCurrencies,
+            () -> exchangeRateClient.getLatestRates(normalizedBase, targetCurrencies));
     }
 
     public HistoricalRateResponse getHistoricalRates(
@@ -64,12 +67,8 @@ public class ExchangeService {
             endDate
         );
 
-        return exchangeRateClient.getHistoricalRates(
-            normalizedBase,
-            normalizedTarget,
-            startDate,
-            endDate
-        );
+        return cache.history(normalizedBase, normalizedTarget, startDate, endDate,
+            () -> exchangeRateClient.getHistoricalRates(normalizedBase, normalizedTarget, startDate, endDate));
     }
 
     private void validateHistoryRequest(

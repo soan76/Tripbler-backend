@@ -10,8 +10,12 @@ public record CryptoHistoryResponse(
     String period,
     int days,
     List<CryptoHistoryPoint> prices,
-    Instant fetchedAt
+    Instant fetchedAt,
+    boolean stale
 ) {
+    public CryptoHistoryResponse(String symbol, String currency, String period, int days, List<CryptoHistoryPoint> prices, Instant fetchedAt) { this(symbol, currency, period, days, prices, fetchedAt, false); }
+    public CryptoHistoryResponse asStale() { return new CryptoHistoryResponse(symbol, currency, period, days, prices, fetchedAt, true); }
+
     public CryptoHistoryResponse {
         prices = List.copyOf(prices);
     }

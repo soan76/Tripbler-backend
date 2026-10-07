@@ -8,6 +8,12 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "crypto.cache")
 public class CryptoCacheProperties {
+    private Duration priceStaleWindow = Duration.ofMinutes(10);
+    private Duration historyStaleWindow = Duration.ofHours(24);
+    public Duration getPriceStaleWindow() { return priceStaleWindow; }
+    public Duration getHistoryStaleWindow() { return historyStaleWindow; }
+    public void setPriceStaleWindow(Duration value) { priceStaleWindow = positive(value); }
+    public void setHistoryStaleWindow(Duration value) { historyStaleWindow = positive(value); }
     private Duration priceTtl = Duration.ofSeconds(60);
     private Duration historyTtl = Duration.ofMinutes(15);
 

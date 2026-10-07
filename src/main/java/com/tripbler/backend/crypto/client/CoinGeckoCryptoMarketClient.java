@@ -82,6 +82,7 @@ public class CoinGeckoCryptoMarketClient implements CryptoMarketClient {
                 coin.symbol(), currency.toUpperCase(Locale.ROOT), price, Instant.now()
             );
         } catch (RestClientException exception) {
+            if (com.tripbler.backend.common.cache.Timeouts.isTimeout(exception)) throw timeout();
             // 외부 응답 본문/인증 정보가 공통 오류 응답이나 예외 로그에 섞이지 않게 한다.
             throw unavailable();
         }
@@ -136,9 +137,16 @@ public class CoinGeckoCryptoMarketClient implements CryptoMarketClient {
                 List.copyOf(points.values()), Instant.now()
             );
         } catch (RestClientException | ArithmeticException exception) {
+            if (com.tripbler.backend.common.cache.Timeouts.isTimeout(exception)) throw timeout();
             // 제공자의 오류 본문이나 인증 정보를 공통 오류에 노출하지 않는다.
             throw unavailable();
         }
+    }
+
+    private BusinessException timeout() {
+        // 타임아웃 종류만 보존하고 URL/키/외부 응답을 담은 원본 예외는 전달하지 않는다.
+        return new BusinessException(ErrorCode.CRYPTO_PROVIDER_UNAVAILABLE,
+            ErrorCode.CRYPTO_PROVIDER_UNAVAILABLE.getMessage(), new java.net.SocketTimeoutException("Provider timeout"));
     }
 
     private BusinessException unavailable() {

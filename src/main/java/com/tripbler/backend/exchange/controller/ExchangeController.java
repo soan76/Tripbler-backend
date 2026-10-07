@@ -70,13 +70,18 @@ public class ExchangeController {
 
         @RequestParam
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-        LocalDate endDate
+        LocalDate endDate,
+        @RequestParam(defaultValue = "300") @jakarta.validation.constraints.Min(16)
+        @jakarta.validation.constraints.Max(1000) int maxPoints
     ) {
-        return exchangeService.getHistoricalRates(
+        var response = exchangeService.getHistoricalRates(
             base,
             target,
             startDate,
             endDate
         );
+        return new HistoricalRateResponse(response.baseCurrency(), response.targetCurrency(), response.startDate(), response.endDate(),
+            com.tripbler.backend.common.chart.HistoryDownsampler.reduce(response.rates(), maxPoints, point -> point.rate().doubleValue()),
+            response.fetchedAt(), response.stale());
     }
 }

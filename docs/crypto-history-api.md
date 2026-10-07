@@ -95,7 +95,7 @@ CryptoService는 CryptoMarketClient 인터페이스에 의존한다.
   환경변수는 CRYPTO_CACHE_PRICE_TTL, CRYPTO_CACHE_HISTORY_TTL이다. 양수 Duration만 허용한다.
 - 키는 제공자에 독립적인 CryptoCoin/currency이며 History에는 period가 추가된다.
   BTC와 bitcoin은 같은 캐시를 공유하고 다른 코인·기간은 별도로 저장한다.
-- 같은 키의 동시 조회는 하나의 외부 호출 결과를 공유한다. 오류는 캐시하지 않으며 만료 데이터로 실패를 숨기지 않는다.
+- 같은 키의 동시 조회는 외부 호출 결과를 공유한다. 타임아웃이면 제한된 기간 내의 마지막 성공 응답에 `stale: true`를 붙여 반환하며 `fetchedAt`은 변경하지 않는다. 다른 오류나 저장값이 없는 타임아웃은 기존 오류를 반환한다.
 - 캐시는 서버 인스턴스의 메모리에 저장되고 재시작하면 초기화된다. 여러 서버 사이에서 공유되지 않는다.
 
 ## 검증

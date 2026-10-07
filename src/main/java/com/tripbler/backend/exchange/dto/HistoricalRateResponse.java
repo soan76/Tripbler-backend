@@ -10,6 +10,10 @@ public record HistoricalRateResponse(
     LocalDate startDate,
     LocalDate endDate,
     List<HistoricalRatePoint> rates,
-    LocalDateTime fetchedAt
+    LocalDateTime fetchedAt,
+    boolean stale
 ) {
+    public HistoricalRateResponse(String baseCurrency, String targetCurrency, LocalDate startDate, LocalDate endDate, List<HistoricalRatePoint> rates, LocalDateTime fetchedAt) { this(baseCurrency, targetCurrency, startDate, endDate, rates, fetchedAt, false); }
+    public HistoricalRateResponse asStale() { return new HistoricalRateResponse(baseCurrency, targetCurrency, startDate, endDate, rates, fetchedAt, true); }
+
 }

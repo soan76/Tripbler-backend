@@ -80,7 +80,7 @@ class CoinGeckoCryptoMarketClientTest {
     @Test
     void connectionTimeoutUsesCommonError() {
         server.expect(requestTo(URL)).andRespond(withException(new SocketTimeoutException("timeout")));
-        assertUnavailable();
+        assertUnavailable(true);
         server.verify();
     }
 
@@ -91,11 +91,19 @@ class CoinGeckoCryptoMarketClientTest {
         server.verify();
     }
 
-    private void assertUnavailable() {
+    private void assertUnavailable() { assertUnavailable(false); }
+
+    private void assertUnavailable(boolean timeout) {
         BusinessException error = assertThrows(BusinessException.class,
             () -> client.getCurrentPrice(CryptoCoin.BTC, "KRW"));
         assertEquals(ErrorCode.CRYPTO_PROVIDER_UNAVAILABLE, error.getErrorCode());
         assertEquals(ErrorCode.CRYPTO_PROVIDER_UNAVAILABLE.getMessage(), error.getMessage());
-        assertNull(error.getCause());
+        if (timeout) {
+            assertInstanceOf(SocketTimeoutException.class, error.getCause());
+            assertEquals("Provider timeout", error.getCause().getMessage());
+            assertNull(error.getCause().getCause());
+        } else {
+            assertNull(error.getCause());
+        }
     }
 }
