@@ -1,13 +1,16 @@
 package com.tripbler.backend.common.exception;
 
+// 장소 제공 서비스(Google Places) 장애를 503으로 응답하기 위한 예외.
 public class PlacesProviderException
-    extends RuntimeException {
+    extends BusinessException {
 
     public PlacesProviderException(
         Throwable cause
     ) {
         super(
-            "장소 제공 서비스에 연결할 수 없습니다.",
+            ErrorCode.PLACES_PROVIDER_UNAVAILABLE,
+            ErrorCode.PLACES_PROVIDER_UNAVAILABLE
+                .getMessage(),
             cause
         );
     }

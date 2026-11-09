@@ -244,6 +244,32 @@ class ExchangeControllerTest {
     }
 
     @Test
+    void shouldReturn400WhenHistoricalStartDateIsMissing()
+        throws Exception {
+
+        // 필수 파라미터 startDate가 빠지면 500이 아니라 400을 반환하는지 확인한다.
+        mockMvc.perform(
+                get("/api/v1/exchange/history")
+                    .param("base", "KRW")
+                    .param("target", "USD")
+                    .param("endDate", "2026-07-31")
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+            .andExpect(
+                jsonPath("$.message")
+                    .value("필수 요청 파라미터가 없습니다: startDate")
+            )
+            .andExpect(
+                jsonPath("$.path")
+                    .value("/api/v1/exchange/history")
+            );
+
+        verifyNoInteractions(exchangeService);
+    }
+
+    @Test
     void shouldReturn400WhenHistoricalDateFormatIsInvalid()
         throws Exception {
 

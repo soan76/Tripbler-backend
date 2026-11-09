@@ -136,6 +136,12 @@ public enum ErrorCode {
         "현재 번역 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해 주세요."
     ),
 
+    PLACES_PROVIDER_UNAVAILABLE(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "PLACES_PROVIDER_UNAVAILABLE",
+        "현재 장소 정보 제공 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해 주세요."
+    ),
+
     INVALID_FIND_ID_VERIFICATION_CODE(
         HttpStatus.BAD_REQUEST,
         "INVALID_FIND_ID_VERIFICATION_CODE",

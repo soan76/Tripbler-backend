@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -108,6 +109,24 @@ public class GlobalExceptionHandler {
         ErrorResponse response = ErrorResponse.of(
             ErrorCode.INVALID_REQUEST,
             message,
+            request.getRequestURI()
+        );
+
+        return ResponseEntity
+            .badRequest()
+            .body(response);
+    }
+
+    // 필수 요청 파라미터가 빠지면 500 대신 400으로 응답한다.
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingRequestParameterException(
+        MissingServletRequestParameterException exception,
+        HttpServletRequest request
+    ) {
+        ErrorResponse response = ErrorResponse.of(
+            ErrorCode.INVALID_REQUEST,
+            "필수 요청 파라미터가 없습니다: "
+                + exception.getParameterName(),
             request.getRequestURI()
         );
 
