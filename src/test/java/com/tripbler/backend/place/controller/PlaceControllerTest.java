@@ -1,15 +1,19 @@
 package com.tripbler.backend.place.controller;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.net.SocketTimeoutException;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -26,6 +30,7 @@ import com.tripbler.backend.common.exception.BusinessException;
 import com.tripbler.backend.common.exception.ErrorCode;
 import com.tripbler.backend.common.exception.GlobalExceptionHandler;
 import com.tripbler.backend.common.exception.PlacesProviderException;
+import com.tripbler.backend.place.dto.PlaceResponse;
 import com.tripbler.backend.place.service.PlaceService;
 
 @WebMvcTest(PlaceController.class)
@@ -441,5 +446,257 @@ class PlaceControllerTest {
             );
 
         verifyNoInteractions(placeService);
+    }
+
+    // ----- /search -----
+    // 인증 규칙(토큰 없으면 401)은 PlaceControllerSecurityTest에서 확인한다.
+    // 여기서는 로그인된 요청으로 입력 검증과 응답만 확인한다.
+
+    private static final String QUERY_MESSAGE =
+        "검색어는 공백을 제외하고 1~100자여야 합니다.";
+
+    @Test
+    void 검색은_공백을_제거한_검색어와_좌표로_서비스를_호출한다() throws Exception {
+        PlaceResponse place = new PlaceResponse(
+            "place-1", "경복궁", 37.5796, 126.977,
+            "서울특별시 종로구 사직로 161", null, "tourist_attraction", null
+        );
+
+        when(
+            placeService.searchText("경복궁", 37.5665, 126.978)
+        ).thenReturn(List.of(place));
+
+        mockMvc.perform(
+                get("/api/v1/places/search")
+                    .with(jwt())
+                    .param("query", "  경복궁  ")
+                    .param("lat", "37.5665")
+                    .param("lng", "126.978")
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].id").value("place-1"))
+            .andExpect(jsonPath("$[0].name").value("경복궁"))
+            // 두 필드는 빠지지 않고 null 값으로 내려간다(기존 /nearby 응답과 같은 형식).
+            .andExpect(jsonPath("$[0]", hasKey("rating")))
+            .andExpect(jsonPath("$[0]", hasKey("openNow")))
+            .andExpect(jsonPath("$[0].rating").value(nullValue()))
+            .andExpect(jsonPath("$[0].openNow").value(nullValue()));
+
+        verify(placeService).searchText("경복궁", 37.5665, 126.978);
+    }
+
+    @Test
+    void 좌표_없는_검색은_좌표를_null로_전달한다() throws Exception {
+        when(
+            placeService.searchText("경복궁", null, null)
+        ).thenReturn(List.of());
+
+        mockMvc.perform(
+                get("/api/v1/places/search")
+                    .with(jwt())
+                    .param("query", "경복궁")
+            )
+            .andExpect(status().isOk())
+            .andExpect(content().json("[]"));
+
+        verify(placeService).searchText("경복궁", null, null);
+    }
+
+    @Test
+    void 검색어_1자와_100자는_허용한다() throws Exception {
+        String oneChar = "가";
+        String hundredChars = "가".repeat(100);
+
+        when(placeService.searchText(oneChar, null, null)).thenReturn(List.of());
+        when(placeService.searchText(hundredChars, null, null)).thenReturn(List.of());
+
+        mockMvc.perform(
+                get("/api/v1/places/search").with(jwt()).param("query", oneChar)
+            )
+            .andExpect(status().isOk());
+
+        mockMvc.perform(
+                get("/api/v1/places/search").with(jwt()).param("query", hundredChars)
+            )
+            .andExpect(status().isOk());
+
+        verify(placeService).searchText(oneChar, null, null);
+        verify(placeService).searchText(hundredChars, null, null);
+    }
+
+    @Test
+    void 공백을_제거하면_100자인_검색어는_허용한다() throws Exception {
+        String hundredChars = "a".repeat(100);
+
+        when(placeService.searchText(hundredChars, null, null)).thenReturn(List.of());
+
+        mockMvc.perform(
+                get("/api/v1/places/search")
+                    .with(jwt())
+                    .param("query", "   " + hundredChars + "   ")
+            )
+            .andExpect(status().isOk());
+
+        verify(placeService).searchText(hundredChars, null, null);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   ", "\t"})
+    void 검색어가_비었거나_공백뿐이면_400을_반환한다(String query) throws Exception {
+        mockMvc.perform(
+                get("/api/v1/places/search")
+                    .with(jwt())
+                    .param("query", query)
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+            .andExpect(jsonPath("$.message").value(QUERY_MESSAGE));
+
+        verifyNoInteractions(placeService);
+    }
+
+    // String.strip()이 지우지 못하는 유니코드 공백류만 보낸 경우다.
+    // NBSP(U+00A0), 제로폭 공백(U+200B), BOM(U+FEFF), 전각 공백(U+3000)
+    @ParameterizedTest
+    @ValueSource(strings = {
+        " ",
+        "​",
+        "﻿",
+        "　",
+        " ​﻿　 \t"
+    })
+    void 검색어가_유니코드_공백류뿐이면_400을_반환한다(String query) throws Exception {
+        mockMvc.perform(
+                get("/api/v1/places/search")
+                    .with(jwt())
+                    .param("query", query)
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+            .andExpect(jsonPath("$.message").value(QUERY_MESSAGE));
+
+        verifyNoInteractions(placeService);
+    }
+
+    @Test
+    void 검색어_앞뒤의_유니코드_공백류를_제거하고_서비스를_호출한다() throws Exception {
+        when(placeService.searchText("경복궁", null, null)).thenReturn(List.of());
+
+        mockMvc.perform(
+                get("/api/v1/places/search")
+                    .with(jwt())
+                    .param("query", " 경복궁​")
+            )
+            .andExpect(status().isOk());
+
+        verify(placeService).searchText("경복궁", null, null);
+    }
+
+    @Test
+    void 검색어_가운데의_ZWJ는_그대로_전달한다() throws Exception {
+        // 가족 이모지: 남자 + ZWJ + 여자 + ZWJ + 여자아이
+        String family = "👨‍👩‍👧";
+
+        when(placeService.searchText(family, null, null)).thenReturn(List.of());
+
+        mockMvc.perform(
+                get("/api/v1/places/search")
+                    .with(jwt())
+                    .param("query", "​" + family + " ")
+            )
+            .andExpect(status().isOk());
+
+        verify(placeService).searchText(family, null, null);
+    }
+
+    @Test
+    void 검색어가_101자면_400을_반환한다() throws Exception {
+        mockMvc.perform(
+                get("/api/v1/places/search")
+                    .with(jwt())
+                    .param("query", "가".repeat(101))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+            .andExpect(jsonPath("$.message").value(QUERY_MESSAGE));
+
+        verifyNoInteractions(placeService);
+    }
+
+    @Test
+    void 검색어가_없으면_400을_반환한다() throws Exception {
+        mockMvc.perform(
+                get("/api/v1/places/search").with(jwt())
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+            .andExpect(jsonPath("$.message").value("필수 요청 파라미터가 없습니다: query"));
+
+        verifyNoInteractions(placeService);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "lat, 37.5665",
+        "lng, 126.978"
+    })
+    void 좌표가_하나만_오면_400을_반환한다(String name, String value) throws Exception {
+        mockMvc.perform(
+                get("/api/v1/places/search")
+                    .with(jwt())
+                    .param("query", "경복궁")
+                    .param(name, value)
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+            .andExpect(jsonPath("$.message").value("위도와 경도는 함께 보내야 합니다."));
+
+        verifyNoInteractions(placeService);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "90.0001, 126.978",
+        "-90.0001, 126.978",
+        "37.5665, 180.0001",
+        "37.5665, -180.0001",
+        "NaN, 126.978",
+        "37.5665, Infinity",
+        "abc, 126.978"
+    })
+    void 검색_좌표가_범위를_벗어나거나_형식이_틀리면_400을_반환한다(
+        String lat,
+        String lng
+    ) throws Exception {
+        mockMvc.perform(
+                get("/api/v1/places/search")
+                    .with(jwt())
+                    .param("query", "경복궁")
+                    .param("lat", lat)
+                    .param("lng", lng)
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+
+        verifyNoInteractions(placeService);
+    }
+
+    @Test
+    void 검색_중_Google_장애면_503을_반환한다() throws Exception {
+        when(
+            placeService.searchText("경복궁", null, null)
+        ).thenThrow(
+            new PlacesProviderException(
+                new SocketTimeoutException("Read timed out")
+            )
+        );
+
+        mockMvc.perform(
+                get("/api/v1/places/search")
+                    .with(jwt())
+                    .param("query", "경복궁")
+            )
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(jsonPath("$.code").value("PLACES_PROVIDER_UNAVAILABLE"));
     }
 }

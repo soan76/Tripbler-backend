@@ -52,4 +52,16 @@ public class PlaceService {
     ) {
         return placeClient.getPlaceDetails(placeId);
     }
+
+    public List<PlaceResponse> searchText(
+        String query,
+        Double latitude,
+        Double longitude
+    ) {
+        return placeClient.searchText(
+            query,
+            latitude,
+            longitude
+        );
+    }
 }

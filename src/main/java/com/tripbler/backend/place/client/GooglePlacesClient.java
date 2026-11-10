@@ -20,6 +20,7 @@ import com.tripbler.backend.common.exception.ErrorCode;
 import com.tripbler.backend.common.exception.PlacesProviderException;
 import com.tripbler.backend.place.dto.GoogleNearbySearchRequest;
 import com.tripbler.backend.place.dto.GoogleNearbySearchResponse;
+import com.tripbler.backend.place.dto.GoogleTextSearchRequest;
 import com.tripbler.backend.place.dto.PlaceResponse;
 
 import tools.jackson.core.JacksonException;
@@ -40,6 +41,23 @@ public class GooglePlacesClient implements PlaceClient {
         + "places.rating,"
         + "places.primaryType,"
         + "places.currentOpeningHours.openNow";
+
+    // 검색 전용 필드 마스크. Text Search Pro SKU 범위의 필드만 요청한다.
+    // rating, currentOpeningHours는 Enterprise SKU라서 넣지 않으며
+    // 검색 응답에서 두 값은 null이다.
+    static final String SEARCH_TEXT_FIELD_MASK =
+        "places.id,"
+        + "places.displayName,"
+        + "places.location,"
+        + "places.formattedAddress,"
+        + "places.primaryType";
+
+    // 검색 결과를 우선할 주변 반경(m). 결과를 이 범위로 제한하지는 않는다.
+    static final double SEARCH_LOCATION_BIAS_RADIUS_METERS = 5000;
+
+    private static final int SEARCH_PAGE_SIZE = 20;
+
+    private static final String SEARCH_LANGUAGE_CODE = "ko";
 
     private static final Logger log =
         LoggerFactory.getLogger(GooglePlacesClient.class);
@@ -323,7 +341,73 @@ public class GooglePlacesClient implements PlaceClient {
         }
     }
 
-    // 검색 요청(nearby, nearest)의 Google 오류는 모두 제공자 장애(503)로 본다.
+    @Override
+    public List<PlaceResponse> searchText(
+        String query,
+        Double latitude,
+        Double longitude
+    ) {
+        GoogleTextSearchRequest.LocationBias locationBias = null;
+
+        if (latitude != null && longitude != null) {
+            locationBias =
+                new GoogleTextSearchRequest.LocationBias(
+                    new GoogleNearbySearchRequest.Circle(
+                        new GoogleNearbySearchRequest.Center(
+                            latitude,
+                            longitude
+                        ),
+                        SEARCH_LOCATION_BIAS_RADIUS_METERS
+                    )
+                );
+        }
+
+        GoogleTextSearchRequest request =
+            new GoogleTextSearchRequest(
+                query,
+                SEARCH_LANGUAGE_CODE,
+                SEARCH_PAGE_SIZE,
+                locationBias
+            );
+
+        try {
+            GoogleNearbySearchResponse response =
+                restClient
+                    .post()
+                    .uri("/v1/places:searchText")
+                    .header(
+                        "X-Goog-Api-Key",
+                        apiKey
+                    )
+                    .header(
+                        "X-Goog-FieldMask",
+                        SEARCH_TEXT_FIELD_MASK
+                    )
+                    .body(request)
+                    .retrieve()
+                    .body(
+                        GoogleNearbySearchResponse.class
+                    );
+
+            if (
+                response == null
+                    || response.places() == null
+            ) {
+                return List.of();
+            }
+
+            return response
+                .places()
+                .stream()
+                .map(this::toPlaceResponse)
+                .toList();
+
+        } catch (RestClientException exception) {
+            throw toSearchException(exception);
+        }
+    }
+
+    // 검색 요청(nearby, nearest, searchText)의 Google 오류는 모두 제공자 장애(503)로 본다.
     // 입력값은 서버에서 먼저 검증하므로 Google 400도 서버 요청 오류로 취급한다.
     private PlacesProviderException toSearchException(
         RestClientException exception

@@ -3,6 +3,10 @@ package com.tripbler.backend.place.client;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
@@ -18,6 +22,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -29,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
@@ -36,6 +42,7 @@ import com.sun.net.httpserver.HttpServer;
 import com.tripbler.backend.common.exception.BusinessException;
 import com.tripbler.backend.common.exception.ErrorCode;
 import com.tripbler.backend.common.exception.PlacesProviderException;
+import com.tripbler.backend.place.dto.PlaceResponse;
 
 class GooglePlacesClientTest {
 
@@ -44,6 +51,14 @@ class GooglePlacesClientTest {
 
     private static final String NEARBY_URL =
         BASE_URL + "/v1/places:searchNearby";
+
+    private static final String SEARCH_TEXT_URL =
+        BASE_URL + "/v1/places:searchText";
+
+    // 검색은 Pro SKU 필드만 요청해야 한다(rating, currentOpeningHours 제외).
+    private static final String EXPECTED_SEARCH_FIELD_MASK =
+        "places.id,places.displayName,places.location,"
+            + "places.formattedAddress,places.primaryType";
 
     private static final String API_KEY_INVALID_BODY =
         """
@@ -359,6 +374,154 @@ class GooglePlacesClientTest {
             ErrorCode.PLACES_PROVIDER_UNAVAILABLE,
             exception.getErrorCode()
         );
+    }
+
+    @Test
+    void 좌표가_있는_검색은_locationBias를_담아_요청한다() {
+        mockServer.expect(requestTo(SEARCH_TEXT_URL))
+            .andExpect(method(HttpMethod.POST))
+            .andExpect(header("X-Goog-Api-Key", "test-api-key"))
+            .andExpect(header("X-Goog-FieldMask", EXPECTED_SEARCH_FIELD_MASK))
+            .andExpect(
+                content().json(
+                    """
+                    {"textQuery":"경복궁",
+                     "languageCode":"ko",
+                     "pageSize":20,
+                     "locationBias":{"circle":{
+                       "center":{"latitude":37.5665,"longitude":126.978},
+                       "radius":5000.0}}}
+                    """,
+                    JsonCompareMode.STRICT
+                )
+            )
+            .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        client.searchText("경복궁", 37.5665, 126.978);
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 좌표가_없는_검색은_locationBias_필드를_보내지_않는다() {
+        // STRICT 비교는 "locationBias": null이 섞여도 실패한다.
+        mockServer.expect(requestTo(SEARCH_TEXT_URL))
+            .andExpect(method(HttpMethod.POST))
+            .andExpect(header("X-Goog-Api-Key", "test-api-key"))
+            .andExpect(header("X-Goog-FieldMask", EXPECTED_SEARCH_FIELD_MASK))
+            .andExpect(
+                content().json(
+                    """
+                    {"textQuery":"경복궁","languageCode":"ko","pageSize":20}
+                    """,
+                    JsonCompareMode.STRICT
+                )
+            )
+            .andExpect(jsonPath("$.locationBias").doesNotExist())
+            .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        client.searchText("경복궁", null, null);
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 검색_응답을_변환하고_평점과_영업_여부는_null이다() {
+        String body = """
+            {"places":[{"id":"place-1",
+              "displayName":{"text":"경복궁","languageCode":"ko"},
+              "location":{"latitude":37.5796,"longitude":126.977},
+              "formattedAddress":"서울특별시 종로구 사직로 161",
+              "primaryType":"tourist_attraction"}]}
+            """;
+
+        mockServer.expect(requestTo(SEARCH_TEXT_URL))
+            .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        List<PlaceResponse> places =
+            client.searchText("경복궁", null, null);
+
+        assertEquals(
+            List.of(
+                new PlaceResponse(
+                    "place-1",
+                    "경복궁",
+                    37.5796,
+                    126.977,
+                    "서울특별시 종로구 사직로 161",
+                    null,
+                    "tourist_attraction",
+                    null
+                )
+            ),
+            places
+        );
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 검색_결과가_없으면_빈_목록을_반환한다() {
+        mockServer.expect(requestTo(SEARCH_TEXT_URL))
+            .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        assertTrue(client.searchText("없는장소", null, null).isEmpty());
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 검색에서_Google_5xx면_503_예외를_던진다() {
+        mockServer.expect(requestTo(SEARCH_TEXT_URL))
+            .andRespond(withServerError());
+
+        assertSearchFailsWithProviderError();
+    }
+
+    @Test
+    void 검색에서_Google_403이면_503_예외를_던진다() {
+        mockServer.expect(requestTo(SEARCH_TEXT_URL))
+            .andRespond(withStatus(HttpStatus.FORBIDDEN));
+
+        assertSearchFailsWithProviderError();
+    }
+
+    @Test
+    void 검색에서_Google_400_키_오류면_503_예외를_던진다() {
+        mockServer.expect(requestTo(SEARCH_TEXT_URL))
+            .andRespond(
+                withStatus(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(API_KEY_INVALID_BODY)
+            );
+
+        assertSearchFailsWithProviderError();
+    }
+
+    @Test
+    void 검색이_시간_초과되면_503_예외를_던진다() {
+        mockServer.expect(requestTo(SEARCH_TEXT_URL))
+            .andRespond(
+                withException(
+                    new SocketTimeoutException("Read timed out")
+                )
+            );
+
+        assertSearchFailsWithProviderError();
+    }
+
+    private void assertSearchFailsWithProviderError() {
+        PlacesProviderException exception = assertThrows(
+            PlacesProviderException.class,
+            () -> client.searchText("경복궁", 37.5665, 126.978)
+        );
+
+        assertEquals(
+            ErrorCode.PLACES_PROVIDER_UNAVAILABLE,
+            exception.getErrorCode()
+        );
+
+        mockServer.verify();
     }
 
     @AfterEach

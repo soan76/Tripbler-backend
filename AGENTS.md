@@ -42,7 +42,7 @@
 | --- | --- | --- |
 | 국가 통화 환율 + 기간별 시세 | `exchange` | Frankfurter |
 | 암호화폐 시세 + 기간별 시세 | `crypto` | CoinGecko |
-| 주변 장소 / 상세 | `place` | Google Places |
+| 장소 검색(로그인 필요) / 주변 장소 / 상세 | `place` | Google Places |
 | 텍스트 번역 | `translation` | Google Translation |
 | 인증, 회원, 구글 계정 연동, 프로필 이미지 | `auth`, `user` | 인증 코드 메일은 Gmail SMTP |
 
@@ -51,4 +51,4 @@
 - `common/chart/HistoryDownsampler`: 기간별 시세 엔드포인트는 `maxPoints`(기본 300, 16~1000)를 받는다. 응답할 때만 샘플링하며 첫·마지막 점과 구간별 최저·최고점을 보존한다.
 - `common/exception`: `BusinessException` + `ErrorCode` → `GlobalExceptionHandler` → `ErrorResponse`. 외부 서비스 실패는 전용 예외(`ExchangeProviderException`, `PlacesProviderException`, `TranslationProviderException`)를 쓴다.
 - `common/config/SecurityConfig`: JWT 액세스 토큰을 쓰는 OAuth2 리소스 서버. 리프레시 토큰은 DB(`auth/RefreshToken`)에 저장하고, 인증 없이 열리는 엔드포인트는 여기서 지정한다.
-- 추가 API 설명: `docs/crypto-history-api.md`.
+- 추가 API 설명: `docs/crypto-history-api.md`, `docs/places-api.md`(장소 API 계약, 필드 마스크 비용 등급, 오류 기준).

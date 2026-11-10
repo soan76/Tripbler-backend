@@ -71,6 +71,13 @@ public class SecurityConfig {
                         "/api/v1/crypto/**"
                     ).permitAll()
 
+                    // 장소 검색은 로그인 사용자만 쓴다(유료 Google 호출 남용 방지).
+                    // 아래 /api/v1/places/** 공개 규칙보다 먼저 와야 한다.
+                    .requestMatchers(
+                        "/api/v1/places/search"
+                    ).authenticated()
+
+                    // 주변 장소, 최근접 장소, 장소 상세는 공개한다.
                     .requestMatchers(
                         "/api/v1/places/**"
                     ).permitAll()
