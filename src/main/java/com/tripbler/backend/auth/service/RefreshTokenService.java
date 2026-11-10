@@ -89,6 +89,20 @@ public class RefreshTokenService {
         return refreshToken;
     }
 
+    /**
+     * 로그아웃: 요청한 Refresh Token과 일치하는 토큰만 원자적으로 폐기한다.
+     *
+     * 이미 폐기됐거나 같은 사용자의 재로그인으로 교체된 토큰이면 아무것도 지우지 않는다.
+     * 그래서 늦게 도착한 이전 로그아웃이 새 로그인 세션의 토큰을 지우지 않는다.
+     * 지웠으면 true(호출부는 결과와 관계없이 같은 응답을 돌려준다).
+     */
+    @Transactional
+    public boolean revoke(
+        String token
+    ) {
+        return refreshTokenRepository.deleteByToken(token) > 0;
+    }
+
     @Transactional
     public void deleteByUser(
         User user

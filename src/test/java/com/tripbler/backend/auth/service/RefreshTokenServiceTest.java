@@ -180,4 +180,29 @@ class RefreshTokenServiceTest {
                 )
         );
     }
+
+    @Test
+    void revokeDeletesOnlyTheMatchingTokenAndReportsWhetherItDeleted() {
+
+        when(
+            refreshTokenRepository.deleteByToken("matching-token")
+        ).thenReturn(1);
+
+        when(
+            refreshTokenRepository.deleteByToken("replaced-token")
+        ).thenReturn(0);
+
+        org.junit.jupiter.api.Assertions.assertTrue(
+            refreshTokenService.revoke("matching-token")
+        );
+
+        org.junit.jupiter.api.Assertions.assertFalse(
+            refreshTokenService.revoke("replaced-token")
+        );
+
+        org.mockito.Mockito.verify(
+            refreshTokenRepository,
+            org.mockito.Mockito.never()
+        ).deleteByUser(org.mockito.ArgumentMatchers.any());
+    }
 }

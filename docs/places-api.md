@@ -28,7 +28,7 @@ Google Places API (New)를 서버에서 호출해 장소 정보를 돌려준다.
 
 - `rating`, `openNow`는 값이 없으면 필드를 빼지 않고 `null`로 내려간다. 검색 API는 항상 `null`이다(아래 비용 참고).
 - `name`이 없으면 `"이름 없는 장소"`, `address`가 없으면 `"주소 정보 없음"`이다.
-- Google 응답에 위치가 없으면 `latitude`, `longitude`가 `0`으로 채워진다(알려진 한계).
+- Google 응답에 위치가 없으면 `latitude`, `longitude`는 필드를 빼지 않고 `null`로 내려간다. 앱은 이 장소를 목록에는 표시하고 지도 마커와 카메라 범위 계산에서는 뺀다.
 - `category`는 Google `primaryType` 값이다.
 
 ## 장소 검색
@@ -43,7 +43,7 @@ Google Places API (New)를 서버에서 호출해 장소 정보를 돌려준다.
 
 - 앞뒤에서 지우는 공백류: Java 공백(`Character.isWhitespace`), 유니코드 구분자(NBSP U+00A0, U+3000 등), 서식 문자(U+200B, U+FEFF 등). 가운데 문자는 그대로 둔다.
 - 좌표가 있으면 그 지점 반경 **5000m** 안의 결과를 우선한다(`locationBias`). 결과를 이 범위로 제한하지는 않는다.
-- 좌표가 없으면 위치 기준 없이 검색한다.
+- 좌표를 생략하면 Google이 요청 IP를 기준으로 결과를 우선한다(IP biasing, `locationBias`·`locationRestriction`이 모두 없을 때의 기본 동작). Tripbler에서는 백엔드가 Google을 호출하므로 사용자 기기가 아니라 **서버의 외부 IP**가 검색 순위에 영향을 줄 수 있다. 근거: [Text Search (New)](https://developers.google.com/maps/documentation/places/web-service/text-search)
 - 결과는 최대 20개이고, 없으면 `200 []`이다.
 
 응답: `200 List<PlaceResponse>`
@@ -107,8 +107,8 @@ Google은 요청한 필드 중 가장 높은 등급으로 과금한다. `rating`
 | `lng` | 예 | | -180~180 |
 | `radius` | 아니오 | `40` | 1~50000(m) |
 
-- 유형 없이 주변 검색(최대 20개 후보)을 한 뒤 그 후보 중 직선거리가 가장 가까운 장소를 고른다. Google이 돌려준 20개 밖에 더 가까운 장소가 있으면 선택되지 않는다.
-- 응답: 있으면 `200 PlaceResponse`, 없으면 `204 No Content`. 시간 초과 같은 장애는 빈 결과가 아니라 503이다.
+- 유형 없이 주변 검색(최대 20개 후보)을 한 뒤 그 후보 중 직선거리가 가장 가까운 장소를 고른다. 좌표가 없는 후보는 제외한다. Google이 돌려준 20개 밖에 더 가까운 장소가 있으면 선택되지 않는다.
+- 응답: 있으면 `200 PlaceResponse`, 없으면(좌표가 있는 후보가 없을 때 포함) `204 No Content`. 시간 초과, Google 응답 본문 누락 같은 장애는 빈 결과가 아니라 503이다.
 
 ## 장소 상세
 
@@ -140,9 +140,10 @@ Google은 요청한 필드 중 가장 높은 등급으로 과금한다. `rating`
 | 검색을 토큰 없이 호출 | 401 | `UNAUTHORIZED` | `인증이 필요합니다.` |
 | 상세: Google 404 | 404 | `RESOURCE_NOT_FOUND` | `요청한 장소를 찾을 수 없습니다.` |
 | 상세: Google 400(키 문제 아님) | 400 | `INVALID_REQUEST` | `장소 ID가 올바르지 않습니다.` |
-| Google 장애, 시간 초과, 키 오류 | 503 | `PLACES_PROVIDER_UNAVAILABLE` | `현재 장소 정보 제공 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해 주세요.` |
+| Google 장애, 시간 초과, 키 오류, Google 응답 본문 누락 | 503 | `PLACES_PROVIDER_UNAVAILABLE` | `현재 장소 정보 제공 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해 주세요.` |
 
 - 검색·주변·최근접은 입력을 서버에서 먼저 검증하므로 Google 쪽 오류(400 포함)를 모두 503으로 본다.
+- 검색·주변·최근접에서 Google 200 응답의 본문 자체가 없으면 결과 0건이 아니라 503이다. 본문이 정상 JSON 객체이고 `places`가 없거나 빈 배열이면 결과 0건(검색·주변은 `200 []`, 최근접은 `204`)이다.
 - 상세는 `placeId`가 사용자 입력이라 Google 404·400을 그대로 구분한다. 단, 400이어도 오류 본문의 `reason`이 `API_KEY_INVALID`, `API_KEY_SERVICE_BLOCKED`, `SERVICE_DISABLED`이면 서버 설정 문제이므로 503이다.
 - 파라미터 제약(위도, 경도, 반경, `type`) 위반이 여러 개면 메시지를 `, `로 이어서 함께 돌려준다(순서는 보장하지 않음).
 

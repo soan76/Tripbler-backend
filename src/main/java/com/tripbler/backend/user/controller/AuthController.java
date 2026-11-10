@@ -14,6 +14,7 @@ import com.tripbler.backend.auth.service.PasswordResetService;
 import com.tripbler.backend.user.dto.UserLoginRequest;
 import com.tripbler.backend.user.dto.UserLoginResponse;
 import com.tripbler.backend.user.service.AuthService;
+import com.tripbler.backend.user.dto.LogoutRequest;
 import com.tripbler.backend.user.dto.TokenRefreshRequest;
 import com.tripbler.backend.user.dto.TokenRefreshResponse;
 
@@ -25,8 +26,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 @RestController
@@ -132,15 +131,15 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * 로그아웃: 본문의 Refresh Token과 일치하는 토큰만 폐기하고 항상 204를 돌려준다.
+     * Access Token 없이 호출할 수 있다(SecurityConfig에서 /api/v1/auth/** 공개).
+     */
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(
-        @AuthenticationPrincipal Jwt jwt
+        @Valid @RequestBody LogoutRequest request
     ) {
-        Long userId = Long.valueOf(
-            jwt.getSubject()
-        );
-
-        authService.logout(userId);
+        authService.logout(request.refreshToken());
     }
 }

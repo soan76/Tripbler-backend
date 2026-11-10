@@ -170,18 +170,7 @@ public class GooglePlacesClient implements PlaceClient {
                         GoogleNearbySearchResponse.class
                     );
 
-            if (
-                response == null
-                    || response.places() == null
-            ) {
-                return List.of();
-            }
-
-            return response
-                .places()
-                .stream()
-                .map(this::toPlaceResponse)
-                .toList();
+            return toPlaceResponses(response);
 
         } catch (RestClientException exception) {
             throw toSearchException(exception);
@@ -219,18 +208,7 @@ public class GooglePlacesClient implements PlaceClient {
                         GoogleNearbySearchResponse.class
                     );
 
-            if (
-                response == null
-                    || response.places() == null
-            ) {
-                return List.of();
-            }
-
-            return response
-                .places()
-                .stream()
-                .map(this::toPlaceResponse)
-                .toList();
+            return toPlaceResponses(response);
 
         } catch (RestClientException exception) {
             throw toSearchException(exception);
@@ -278,12 +256,14 @@ public class GooglePlacesClient implements PlaceClient {
                 radius
             );
 
-        if (places.isEmpty()) {
-            return null;
-        }
-
+        // 좌표가 없는 장소는 거리를 계산할 수 없으므로 후보에서 뺀다.
+        // 좌표가 있는 후보가 없으면 null(204)이다.
         return places
             .stream()
+            .filter(place ->
+                place.latitude() != null
+                    && place.longitude() != null
+            )
             .min(
                 java.util.Comparator.comparingDouble(
                     place -> calculateDistance(
@@ -389,22 +369,36 @@ public class GooglePlacesClient implements PlaceClient {
                         GoogleNearbySearchResponse.class
                     );
 
-            if (
-                response == null
-                    || response.places() == null
-            ) {
-                return List.of();
-            }
-
-            return response
-                .places()
-                .stream()
-                .map(this::toPlaceResponse)
-                .toList();
+            return toPlaceResponses(response);
 
         } catch (RestClientException exception) {
             throw toSearchException(exception);
         }
+    }
+
+    // 검색 응답(nearby, nearest, searchText)을 변환한다.
+    // 본문 자체가 없으면 정상 결과로 볼 수 없으므로 제공자 장애(503)로 본다.
+    // 정상 JSON 객체에 places가 없거나 빈 배열이면 결과 0건이다.
+    private List<PlaceResponse> toPlaceResponses(
+        GoogleNearbySearchResponse response
+    ) {
+        if (response == null) {
+            throw new PlacesProviderException(
+                new IllegalStateException(
+                    "Google Places 검색 응답 본문이 비어 있습니다."
+                )
+            );
+        }
+
+        if (response.places() == null) {
+            return List.of();
+        }
+
+        return response
+            .places()
+            .stream()
+            .map(this::toPlaceResponse)
+            .toList();
     }
 
     // 검색 요청(nearby, nearest, searchText)의 Google 오류는 모두 제공자 장애(503)로 본다.
@@ -559,15 +553,17 @@ public class GooglePlacesClient implements PlaceClient {
                 ? place.displayName().text()
                 : "이름 없는 장소";
 
-        double latitude =
+        // 위치가 없으면 좌표를 null로 둔다.
+        // 앱은 목록에는 표시하고 지도 마커와 카메라 범위에서는 뺀다.
+        Double latitude =
             place.location() != null
                 ? place.location().latitude()
-                : 0;
+                : null;
 
-        double longitude =
+        Double longitude =
             place.location() != null
                 ? place.location().longitude()
-                : 0;
+                : null;
 
         String address =
             place.formattedAddress() != null

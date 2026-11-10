@@ -503,6 +503,30 @@ class PlaceControllerTest {
     }
 
     @Test
+    void 검색_결과의_위치가_없으면_좌표를_null로_내려보낸다() throws Exception {
+        PlaceResponse place = new PlaceResponse(
+            "place-1", "경복궁", null, null,
+            "서울특별시 종로구 사직로 161", null, "tourist_attraction", null
+        );
+
+        when(
+            placeService.searchText("경복궁", null, null)
+        ).thenReturn(List.of(place));
+
+        mockMvc.perform(
+                get("/api/v1/places/search")
+                    .with(jwt())
+                    .param("query", "경복궁")
+            )
+            .andExpect(status().isOk())
+            // 필드는 빠지지 않고 null로 내려가야 앱이 목록에만 표시한다.
+            .andExpect(jsonPath("$[0]", hasKey("latitude")))
+            .andExpect(jsonPath("$[0]", hasKey("longitude")))
+            .andExpect(jsonPath("$[0].latitude").value(nullValue()))
+            .andExpect(jsonPath("$[0].longitude").value(nullValue()));
+    }
+
+    @Test
     void 검색어_1자와_100자는_허용한다() throws Exception {
         String oneChar = "가";
         String hundredChars = "가".repeat(100);

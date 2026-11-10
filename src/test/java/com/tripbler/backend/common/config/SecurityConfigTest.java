@@ -102,20 +102,6 @@ class SecurityConfigTest {
     }
 
     @Test
-    @DisplayName("JWT 없이 /auth/logout에 접근하면 401 UNAUTHORIZED를 반환한다")
-    void logoutWithoutJwtReturns401() throws Exception {
-
-        mockMvc.perform(
-                post("/api/v1/auth/logout")
-            )
-            .andExpect(status().isUnauthorized())
-            .andExpect(jsonPath("$.status").value(401))
-            .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
-            .andExpect(jsonPath("$.message").value("인증이 필요합니다."))
-            .andExpect(jsonPath("$.path").value("/api/v1/auth/logout"));
-    }
-
-    @Test
     @DisplayName("JWT 없이 계정 탈퇴 API에 접근하면 401 UNAUTHORIZED를 반환한다")
     void deleteAccountWithoutJwtReturns401() throws Exception {
 

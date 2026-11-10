@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -127,6 +128,24 @@ public class GlobalExceptionHandler {
             ErrorCode.INVALID_REQUEST,
             "필수 요청 파라미터가 없습니다: "
                 + exception.getParameterName(),
+            request.getRequestURI()
+        );
+
+        return ResponseEntity
+            .badRequest()
+            .body(response);
+    }
+
+    // 요청 본문이 없거나 JSON 형식이 깨지면 500 대신 400으로 응답한다.
+    // 본문 내용(토큰 등)이 담길 수 있어 예외 메시지는 응답·로그에 넣지 않는다.
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(
+        HttpMessageNotReadableException exception,
+        HttpServletRequest request
+    ) {
+        ErrorResponse response = ErrorResponse.of(
+            ErrorCode.INVALID_REQUEST,
+            "요청 본문이 없거나 형식이 올바르지 않습니다.",
             request.getRequestURI()
         );
 

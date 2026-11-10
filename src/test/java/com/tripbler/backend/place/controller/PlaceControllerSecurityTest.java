@@ -1,5 +1,6 @@
 package com.tripbler.backend.place.controller;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -16,7 +17,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidationException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -59,6 +62,36 @@ class PlaceControllerSecurityTest {
             .andExpect(jsonPath("$.message").value("인증이 필요합니다."))
             .andExpect(jsonPath("$.path").value("/api/v1/places/search"));
 
+        verifyNoInteractions(placeService);
+    }
+
+    @Test
+    void 만료된_토큰으로_검색하면_401을_반환하고_서비스를_호출하지_않는다() throws Exception {
+        // 실제 JwtDecoder가 만료된 토큰을 검증할 때 던지는 예외를 흉내 낸다.
+        when(jwtDecoder.decode(anyString())).thenThrow(
+            new JwtValidationException(
+                "Jwt expired",
+                List.of(
+                    new OAuth2Error(
+                        "invalid_token",
+                        "Jwt expired at 2026-01-01T00:00:00Z",
+                        null
+                    )
+                )
+            )
+        );
+
+        mockMvc.perform(
+                get("/api/v1/places/search")
+                    .header("Authorization", "Bearer expired-access-token")
+                    .param("query", "경복궁")
+            )
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.status").value(401))
+            .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+            .andExpect(jsonPath("$.path").value("/api/v1/places/search"));
+
+        verify(jwtDecoder).decode("expired-access-token");
         verifyNoInteractions(placeService);
     }
 

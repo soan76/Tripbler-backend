@@ -269,20 +269,17 @@ class AuthServiceTest {
     }
 
     @Test
-    void logoutSuccess() {
+    void logoutRevokesOnlyTheRequestedRefreshToken() {
 
-        User user = org.mockito.Mockito.mock(User.class);
-
-        when(
-            userRepository.findById(1L)
-        ).thenReturn(
-            Optional.of(user)
-        );
-
-        authService.logout(1L);
+        authService.logout("refresh-token-of-this-device");
 
         verify(
             refreshTokenService
-        ).deleteByUser(user);
+        ).revoke("refresh-token-of-this-device");
+
+        verify(
+            refreshTokenService,
+            never()
+        ).deleteByUser(any());
     }
 }

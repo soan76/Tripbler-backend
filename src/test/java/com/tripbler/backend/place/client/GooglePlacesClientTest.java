@@ -42,6 +42,7 @@ import com.sun.net.httpserver.HttpServer;
 import com.tripbler.backend.common.exception.BusinessException;
 import com.tripbler.backend.common.exception.ErrorCode;
 import com.tripbler.backend.common.exception.PlacesProviderException;
+import com.tripbler.backend.place.dto.GoogleNearbySearchResponse;
 import com.tripbler.backend.place.dto.PlaceResponse;
 
 class GooglePlacesClientTest {
@@ -106,6 +107,112 @@ class GooglePlacesClientTest {
 
         assertNull(
             client.findNearestPlace(37.5665, 126.9780, 40)
+        );
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 최근접_후보가_빈_배열이면_null을_반환한다() {
+        mockServer.expect(requestTo(NEARBY_URL))
+            .andRespond(
+                withSuccess("{\"places\":[]}", MediaType.APPLICATION_JSON)
+            );
+
+        assertNull(
+            client.findNearestPlace(37.5665, 126.9780, 40)
+        );
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 최근접_응답_본문이_없으면_503_예외를_던진다() {
+        // 본문 누락은 빈 결과(204)가 아니라 제공자 장애다.
+        mockServer.expect(requestTo(NEARBY_URL))
+            .andRespond(withSuccess());
+
+        PlacesProviderException exception = assertThrows(
+            PlacesProviderException.class,
+            () -> client.findNearestPlace(37.5665, 126.9780, 40)
+        );
+
+        assertEquals(
+            ErrorCode.PLACES_PROVIDER_UNAVAILABLE,
+            exception.getErrorCode()
+        );
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 최근접은_좌표가_없는_후보를_제외한다() {
+        // 위치 없는 후보가 (0, 0)으로 계산되거나 선택되면 안 된다.
+        String body = """
+            {"places":[
+              {"id":"no-location","displayName":{"text":"위치 없음"}},
+              {"id":"far","displayName":{"text":"먼 곳"},
+               "location":{"latitude":37.5700,"longitude":126.9800}},
+              {"id":"near","displayName":{"text":"가까운 곳"},
+               "location":{"latitude":37.5666,"longitude":126.9781}}]}
+            """;
+
+        mockServer.expect(requestTo(NEARBY_URL))
+            .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        assertEquals(
+            "near",
+            client.findNearestPlace(37.5665, 126.9780, 40).id()
+        );
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 최근접_후보가_모두_좌표가_없으면_null을_반환한다() {
+        String body = """
+            {"places":[{"id":"no-location","displayName":{"text":"위치 없음"}}]}
+            """;
+
+        mockServer.expect(requestTo(NEARBY_URL))
+            .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        assertNull(
+            client.findNearestPlace(37.5665, 126.9780, 40)
+        );
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 주변_검색_응답_본문이_없으면_503_예외를_던진다() {
+        mockServer.expect(requestTo(NEARBY_URL))
+            .andRespond(withSuccess());
+
+        PlacesProviderException exception = assertThrows(
+            PlacesProviderException.class,
+            () -> client.searchNearby(
+                37.5665, 126.9780, "tourist_attraction", 1000
+            )
+        );
+
+        assertEquals(
+            ErrorCode.PLACES_PROVIDER_UNAVAILABLE,
+            exception.getErrorCode()
+        );
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 주변_검색_결과가_없으면_빈_목록을_반환한다() {
+        mockServer.expect(requestTo(NEARBY_URL))
+            .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        assertTrue(
+            client.searchNearby(
+                37.5665, 126.9780, "tourist_attraction", 1000
+            ).isEmpty()
         );
 
         mockServer.verify();
@@ -466,6 +573,78 @@ class GooglePlacesClientTest {
             .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
         assertTrue(client.searchText("없는장소", null, null).isEmpty());
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 검색_결과가_빈_배열이면_빈_목록을_반환한다() {
+        mockServer.expect(requestTo(SEARCH_TEXT_URL))
+            .andRespond(
+                withSuccess("{\"places\":[]}", MediaType.APPLICATION_JSON)
+            );
+
+        assertTrue(client.searchText("없는장소", null, null).isEmpty());
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 검색_응답_본문이_없으면_503_예외를_던진다() {
+        // 본문과 Content-Type이 없는 200. RestClient는 이 경우 null을 돌려준다.
+        mockServer.expect(requestTo(SEARCH_TEXT_URL))
+            .andRespond(withSuccess());
+
+        assertSearchFailsWithProviderError();
+    }
+
+    @Test
+    void 검색_응답_본문이_JSON_형식의_빈_본문이어도_503_예외를_던진다() {
+        mockServer.expect(requestTo(SEARCH_TEXT_URL))
+            .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
+
+        assertSearchFailsWithProviderError();
+    }
+
+    @Test
+    void RestClient는_본문_없는_200_응답을_null로_돌려준다() {
+        // 본문 누락 판정(response == null)이 실제로 동작하는 전제를 확인한다.
+        RestClient.Builder builder =
+            RestClient.builder().baseUrl(BASE_URL);
+        MockRestServiceServer server =
+            MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(SEARCH_TEXT_URL))
+            .andRespond(withSuccess());
+
+        assertNull(
+            builder.build()
+                .post()
+                .uri("/v1/places:searchText")
+                .retrieve()
+                .body(GoogleNearbySearchResponse.class)
+        );
+
+        server.verify();
+    }
+
+    @Test
+    void 위치가_없는_장소는_좌표를_null로_변환한다() {
+        String body = """
+            {"places":[{"id":"place-1",
+              "displayName":{"text":"경복궁","languageCode":"ko"},
+              "formattedAddress":"서울특별시 종로구 사직로 161",
+              "primaryType":"tourist_attraction"}]}
+            """;
+
+        mockServer.expect(requestTo(SEARCH_TEXT_URL))
+            .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        PlaceResponse place =
+            client.searchText("경복궁", null, null).get(0);
+
+        assertEquals("place-1", place.id());
+        assertNull(place.latitude());
+        assertNull(place.longitude());
 
         mockServer.verify();
     }

@@ -50,11 +50,8 @@ public class SecurityConfig {
                         "/api/v1/users"
                     ).permitAll()
 
-                    // 로그아웃은 JWT 인증 필요
-                    .requestMatchers(
-                        HttpMethod.POST,
-                        "/api/v1/auth/logout"
-                    ).authenticated()
+                    // 로그아웃은 Access Token 없이 본문의 Refresh Token으로 처리한다
+                    // (만료된 Access Token에서도 서버 세션을 끝낼 수 있게). 아래 /auth/** 공개 규칙을 따른다.
 
                     // 로그인 / Refresh 등 인증 API
                     .requestMatchers(

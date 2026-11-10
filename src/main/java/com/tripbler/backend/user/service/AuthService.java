@@ -9,7 +9,6 @@ import com.tripbler.backend.user.dto.UserLoginRequest;
 import com.tripbler.backend.user.dto.UserLoginResponse;
 import com.tripbler.backend.user.entity.User;
 import com.tripbler.backend.user.exception.InvalidCredentialsException;
-import com.tripbler.backend.user.exception.UserNotFoundException;
 import com.tripbler.backend.user.repository.UserRepository;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -97,18 +96,17 @@ public class AuthService {
         );
     }
 
+    /**
+     * 로그아웃: 요청한 Refresh Token 하나만 폐기한다(계정 탈퇴는 사용자 토큰 전체를 지움).
+     *
+     * 토큰이 없거나 이미 폐기·교체됐어도 같은 결과로 끝나, 응답으로 토큰 존재 여부를 알 수 없다.
+     */
     @Transactional
     public void logout(
-        Long userId
+        String refreshToken
     ) {
-        User user = userRepository
-            .findById(userId)
-            .orElseThrow(
-                UserNotFoundException::new
-            );
-
-        refreshTokenService.deleteByUser(
-            user
+        refreshTokenService.revoke(
+            refreshToken
         );
     }
 }
