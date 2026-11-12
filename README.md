@@ -50,6 +50,7 @@
 
 - 인증이 필요한 API는 `Authorization: Bearer <access token>` 헤더를 붙입니다.
 - 로그아웃은 Access Token 없이 본문의 `refreshToken`으로 호출하며, 일치하는 토큰만 폐기합니다.
+- 공개 인증·가입 API는 IP별, 인증 메일 발송은 IP·이메일별로 요청 횟수를 제한합니다. 한도를 넘으면 `429`와 `Retry-After` 헤더로 응답합니다. 인증코드는 5번 틀리면 폐기됩니다.
 - 오류는 모두 같은 형식으로 응답합니다.
 
   ```json
@@ -64,6 +65,7 @@
 | [docs/crypto-history-api.md](docs/crypto-history-api.md) | 암호화폐 기간별 시세 API |
 | [docs/market-network-resilience.md](docs/market-network-resilience.md) | 캐시 TTL, 허용 기간, 재시도 억제 등 시세 안정성 정책 |
 | [docs/auth-logout-api.md](docs/auth-logout-api.md) | 로그아웃 계약 |
+| [docs/auth-rate-limit-api.md](docs/auth-rate-limit-api.md) | 공개 인증 API 요청 제한, 인증코드 오답 제한 |
 
 ## 프로젝트 구조
 

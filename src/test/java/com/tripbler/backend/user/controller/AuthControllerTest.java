@@ -6,6 +6,7 @@ import com.tripbler.backend.auth.service.PasswordResetService;
 import com.tripbler.backend.common.config.SecurityConfig;
 import com.tripbler.backend.common.exception.BusinessException;
 import com.tripbler.backend.common.exception.ErrorCode;
+import com.tripbler.backend.common.exception.TooManyRequestsException;
 import com.tripbler.backend.common.security.CustomAccessDeniedHandler;
 import com.tripbler.backend.common.security.CustomAuthenticationEntryPoint;
 import com.tripbler.backend.user.service.AuthService;
@@ -20,9 +21,11 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -54,6 +57,29 @@ class AuthControllerTest {
     private JwtDecoder jwtDecoder;
 
     @Test
+    void sendCodeRateLimitedReturns429WithRetryAfter()
+        throws Exception {
+
+        doThrow(new TooManyRequestsException(42))
+            .when(findIdVerificationService)
+            .sendVerificationCode("test@gmail.com", "127.0.0.1");
+
+        mockMvc.perform(
+            post("/api/v1/auth/find-id/send-code")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "email": "test@gmail.com"
+                    }
+                    """)
+        )
+            .andExpect(status().isTooManyRequests())
+            .andExpect(header().string("Retry-After", "42"))
+            .andExpect(jsonPath("$.code").value("TOO_MANY_REQUESTS"))
+            .andExpect(jsonPath("$.path").value("/api/v1/auth/find-id/send-code"));
+    }
+
+    @Test
     void sendFindIdVerificationCodeSucceedsWithoutAuthentication()
         throws Exception {
 
@@ -69,7 +95,7 @@ class AuthControllerTest {
             .andExpect(status().isNoContent());
 
         verify(findIdVerificationService)
-            .sendVerificationCode("test@gmail.com");
+            .sendVerificationCode("test@gmail.com", "127.0.0.1");
     }
 
     @Test
@@ -211,7 +237,8 @@ class AuthControllerTest {
         verify(passwordResetVerificationService)
             .sendVerificationCode(
                 "testuser",
-                "test@gmail.com"
+                "test@gmail.com",
+                "127.0.0.1"
             );
     }
 

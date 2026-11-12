@@ -5,6 +5,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -24,6 +25,35 @@ public class GlobalExceptionHandler {
 
     private static final Logger log =
         LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    // 요청 제한: 429와 함께 다시 시도할 수 있을 때까지 남은 초를 Retry-After로 알린다.
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<ErrorResponse> handleTooManyRequests(
+        TooManyRequestsException exception,
+        HttpServletRequest request
+    ) {
+        ErrorCode errorCode = exception.getErrorCode();
+
+        log.warn(
+            "Rate limited: path={}, retryAfter={}",
+            request.getRequestURI(),
+            exception.getRetryAfterSeconds()
+        );
+
+        return ResponseEntity
+            .status(errorCode.getStatus())
+            .header(
+                HttpHeaders.RETRY_AFTER,
+                String.valueOf(exception.getRetryAfterSeconds())
+            )
+            .body(
+                ErrorResponse.of(
+                    errorCode,
+                    exception.getMessage(),
+                    request.getRequestURI()
+                )
+            );
+    }
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(

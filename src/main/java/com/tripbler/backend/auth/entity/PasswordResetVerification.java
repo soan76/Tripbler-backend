@@ -20,6 +20,9 @@ import java.time.Instant;
 )
 public class PasswordResetVerification {
 
+    // 같은 인증코드로 허용하는 오답 횟수. 이 횟수에 도달하면 코드를 폐기한다.
+    public static final int MAX_FAILED_ATTEMPTS = 5;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -109,8 +112,14 @@ public class PasswordResetVerification {
         return verified;
     }
 
-    public void increaseAttemptCount() {
+    // 오답을 한 번 기록한다. 폐기 여부는 isAttemptsExhausted()로 판단한다.
+    public void recordFailedAttempt() {
         attemptCount++;
+    }
+
+    // 오답이 상한에 도달해 더 이상 쓸 수 없는 코드인지 확인한다.
+    public boolean isAttemptsExhausted() {
+        return attemptCount >= MAX_FAILED_ATTEMPTS;
     }
 
     public void markVerified() {

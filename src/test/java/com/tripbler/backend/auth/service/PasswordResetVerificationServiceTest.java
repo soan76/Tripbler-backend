@@ -19,6 +19,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.mail.MailSendException;
+import org.mockito.InOrder;
+import com.tripbler.backend.common.exception.TooManyRequestsException;
+import com.tripbler.backend.common.ratelimit.AuthRateLimiter;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -46,6 +51,11 @@ class PasswordResetVerificationServiceTest {
     @Mock
     private PasswordResetTokenService resetTokenService;
 
+    @Mock
+    private AuthRateLimiter authRateLimiter;
+
+    private static final String CLIENT_IP = "10.0.0.1";
+
     private PasswordResetVerificationService service;
 
     @BeforeEach
@@ -55,8 +65,125 @@ class PasswordResetVerificationServiceTest {
             socialAccountRepository,
             emailService,
             passwordEncoder,
-            resetTokenService
+            resetTokenService,
+            mock(PlatformTransactionManager.class),
+            authRateLimiter
         );
+    }
+
+    @Test
+    void sendAcquiresLimitBeforeAccountLookup() {
+        String email = "test@gmail.com";
+        when(
+            socialAccountRepository.findByProviderAndProviderEmailIgnoreCase(
+                SocialProvider.GOOGLE,
+                email
+            )
+        ).thenReturn(Optional.empty());
+
+        service.sendVerificationCode("testuser", email, CLIENT_IP);
+
+        InOrder inOrder = inOrder(authRateLimiter, socialAccountRepository);
+        inOrder.verify(authRateLimiter).acquireSendCode(CLIENT_IP, email);
+        inOrder.verify(socialAccountRepository)
+            .findByProviderAndProviderEmailIgnoreCase(SocialProvider.GOOGLE, email);
+    }
+
+    @Test
+    void rateLimitedRequestDoesNotLookUpAccount() {
+        doThrow(new TooManyRequestsException(30))
+            .when(authRateLimiter).acquireSendCode(CLIENT_IP, "test@gmail.com");
+
+        TooManyRequestsException exception = assertThrows(
+            TooManyRequestsException.class,
+            () -> service.sendVerificationCode("testuser", "test@gmail.com", CLIENT_IP)
+        );
+
+        assertEquals(30, exception.getRetryAfterSeconds());
+        verifyNoInteractions(socialAccountRepository, verificationRepository, emailService);
+    }
+
+    @Test
+    void mailFailureIsSwallowed() {
+        SocialAccount socialAccount = mock(SocialAccount.class);
+        User user = mock(User.class);
+        when(user.getLoginId()).thenReturn("testuser");
+        when(socialAccount.getUser()).thenReturn(user);
+        when(socialAccount.getProviderEmail()).thenReturn("test@gmail.com");
+        when(
+            socialAccountRepository.findByProviderAndProviderEmailIgnoreCase(
+                SocialProvider.GOOGLE,
+                "test@gmail.com"
+            )
+        ).thenReturn(Optional.of(socialAccount));
+        when(passwordEncoder.encode(anyString())).thenReturn("hashed-code");
+        doThrow(new MailSendException("smtp down"))
+            .when(emailService).sendPasswordResetVerificationCode(anyString(), anyString());
+
+        assertDoesNotThrow(() -> service.sendVerificationCode("testuser", "test@gmail.com", CLIENT_IP));
+    }
+
+    @Test
+    void fifthWrongAnswerDiscardsCode() {
+        String loginId = "testuser";
+        String email = "test@gmail.com";
+
+        PasswordResetVerification verification =
+            mock(PasswordResetVerification.class);
+
+        when(
+            verificationRepository
+                .findFirstByLoginIdIgnoreCaseAndEmailIgnoreCaseOrderByIdDesc(
+                    loginId,
+                    email
+                )
+        ).thenReturn(Optional.of(verification));
+        when(verification.getCodeHash()).thenReturn("hashed-code");
+        when(passwordEncoder.matches("111111", "hashed-code"))
+            .thenReturn(false);
+        when(verification.isAttemptsExhausted())
+            .thenReturn(false, true);
+
+        BusinessException exception = assertThrows(
+            BusinessException.class,
+            () -> service.verifyCode(loginId, email, "111111")
+        );
+
+        assertEquals(
+            ErrorCode.INVALID_PASSWORD_RESET_VERIFICATION_CODE,
+            exception.getErrorCode()
+        );
+        verify(verification).recordFailedAttempt();
+    }
+
+    @Test
+    void discardedCodeRejectsCorrectAnswerWithoutRecording() {
+        String loginId = "testuser";
+        String email = "test@gmail.com";
+
+        PasswordResetVerification verification =
+            mock(PasswordResetVerification.class);
+
+        when(
+            verificationRepository
+                .findFirstByLoginIdIgnoreCaseAndEmailIgnoreCaseOrderByIdDesc(
+                    loginId,
+                    email
+                )
+        ).thenReturn(Optional.of(verification));
+        when(verification.isAttemptsExhausted()).thenReturn(true);
+
+        BusinessException exception = assertThrows(
+            BusinessException.class,
+            () -> service.verifyCode(loginId, email, "123456")
+        );
+
+        assertEquals(
+            ErrorCode.INVALID_PASSWORD_RESET_VERIFICATION_CODE,
+            exception.getErrorCode()
+        );
+        verify(verification, never()).recordFailedAttempt();
+        verifyNoInteractions(passwordEncoder, socialAccountRepository, resetTokenService);
     }
 
     @Test
@@ -92,7 +219,8 @@ class PasswordResetVerificationServiceTest {
 
         service.sendVerificationCode(
             loginId,
-            inputEmail
+            inputEmail,
+            CLIENT_IP
         );
 
         Instant after = Instant.now();
@@ -190,7 +318,8 @@ class PasswordResetVerificationServiceTest {
 
         service.sendVerificationCode(
             loginId,
-            email
+            email,
+            CLIENT_IP
         );
 
         verifyNoInteractions(
@@ -225,7 +354,8 @@ class PasswordResetVerificationServiceTest {
 
         service.sendVerificationCode(
             inputLoginId,
-            email
+            email,
+            CLIENT_IP
         );
 
         verifyNoInteractions(
@@ -253,7 +383,7 @@ class PasswordResetVerificationServiceTest {
 
         when(
             verificationRepository
-                .findTopByLoginIdIgnoreCaseAndEmailIgnoreCaseOrderByIdDesc(
+                .findFirstByLoginIdIgnoreCaseAndEmailIgnoreCaseOrderByIdDesc(
                     loginId,
                     email
                 )
@@ -326,7 +456,7 @@ class PasswordResetVerificationServiceTest {
 
         when(
             verificationRepository
-                .findTopByLoginIdIgnoreCaseAndEmailIgnoreCaseOrderByIdDesc(
+                .findFirstByLoginIdIgnoreCaseAndEmailIgnoreCaseOrderByIdDesc(
                     loginId,
                     email
                 )
@@ -364,7 +494,7 @@ class PasswordResetVerificationServiceTest {
         );
 
         verify(verification)
-            .increaseAttemptCount();
+            .recordFailedAttempt();
 
         verifyNoInteractions(
             socialAccountRepository,
@@ -382,7 +512,7 @@ class PasswordResetVerificationServiceTest {
 
         when(
             verificationRepository
-                .findTopByLoginIdIgnoreCaseAndEmailIgnoreCaseOrderByIdDesc(
+                .findFirstByLoginIdIgnoreCaseAndEmailIgnoreCaseOrderByIdDesc(
                     loginId,
                     email
                 )
@@ -405,7 +535,7 @@ class PasswordResetVerificationServiceTest {
             );
 
         assertEquals(
-            ErrorCode.EXPIRED_PASSWORD_RESET_VERIFICATION_CODE,
+            ErrorCode.INVALID_PASSWORD_RESET_VERIFICATION_CODE,
             exception.getErrorCode()
         );
 
@@ -426,7 +556,7 @@ class PasswordResetVerificationServiceTest {
 
         when(
             verificationRepository
-                .findTopByLoginIdIgnoreCaseAndEmailIgnoreCaseOrderByIdDesc(
+                .findFirstByLoginIdIgnoreCaseAndEmailIgnoreCaseOrderByIdDesc(
                     loginId,
                     email
                 )

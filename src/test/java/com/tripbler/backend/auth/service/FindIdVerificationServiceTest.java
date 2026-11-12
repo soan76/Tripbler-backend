@@ -19,6 +19,10 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.mail.MailSendException;
+import com.tripbler.backend.common.exception.TooManyRequestsException;
+import com.tripbler.backend.common.ratelimit.AuthRateLimiter;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -44,6 +48,11 @@ class FindIdVerificationServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private AuthRateLimiter authRateLimiter;
+
+    private static final String CLIENT_IP = "10.0.0.1";
+
     private FindIdVerificationService service;
 
     @BeforeEach
@@ -52,8 +61,115 @@ class FindIdVerificationServiceTest {
             verificationRepository,
             socialAccountRepository,
             emailService,
-            passwordEncoder
+            passwordEncoder,
+            mock(PlatformTransactionManager.class),
+            authRateLimiter
         );
+    }
+
+    @Test
+    void sendAcquiresLimitBeforeAccountLookup() {
+        String email = "test@gmail.com";
+        when(
+            socialAccountRepository.findByProviderAndProviderEmailIgnoreCase(
+                SocialProvider.GOOGLE,
+                email
+            )
+        ).thenReturn(Optional.empty());
+
+        service.sendVerificationCode(email, CLIENT_IP);
+
+        InOrder inOrder = inOrder(authRateLimiter, socialAccountRepository);
+        inOrder.verify(authRateLimiter).acquireSendCode(CLIENT_IP, email);
+        inOrder.verify(socialAccountRepository)
+            .findByProviderAndProviderEmailIgnoreCase(SocialProvider.GOOGLE, email);
+    }
+
+    @Test
+    void rateLimitedRequestDoesNotLookUpAccount() {
+        doThrow(new TooManyRequestsException(30))
+            .when(authRateLimiter).acquireSendCode(CLIENT_IP, "test@gmail.com");
+
+        TooManyRequestsException exception = assertThrows(
+            TooManyRequestsException.class,
+            () -> service.sendVerificationCode("test@gmail.com", CLIENT_IP)
+        );
+
+        assertEquals(30, exception.getRetryAfterSeconds());
+        verifyNoInteractions(socialAccountRepository, verificationRepository, emailService);
+    }
+
+    @Test
+    void mailFailureIsSwallowed() {
+        SocialAccount socialAccount = mock(SocialAccount.class);
+        when(socialAccount.getProviderEmail()).thenReturn("test@gmail.com");
+        when(
+            socialAccountRepository.findByProviderAndProviderEmailIgnoreCase(
+                SocialProvider.GOOGLE,
+                "test@gmail.com"
+            )
+        ).thenReturn(Optional.of(socialAccount));
+        when(passwordEncoder.encode(anyString())).thenReturn("hashed-code");
+        doThrow(new MailSendException("smtp down"))
+            .when(emailService).sendFindIdVerificationCode(anyString(), anyString());
+
+        assertDoesNotThrow(() -> service.sendVerificationCode("test@gmail.com", CLIENT_IP));
+    }
+
+    @Test
+    void fifthWrongAnswerDiscardsCode() {
+        String email = "test@gmail.com";
+
+        FindIdVerification verification =
+            mock(FindIdVerification.class);
+
+        when(
+            verificationRepository
+                .findFirstByEmailIgnoreCaseOrderByIdDesc(email)
+        ).thenReturn(Optional.of(verification));
+        when(verification.getCodeHash()).thenReturn("hashed-code");
+        when(passwordEncoder.matches("111111", "hashed-code"))
+            .thenReturn(false);
+        // 기록 전에는 폐기 전, 다섯 번째 오답을 기록한 뒤에는 폐기 상태
+        when(verification.isAttemptsExhausted())
+            .thenReturn(false, true);
+
+        BusinessException exception = assertThrows(
+            BusinessException.class,
+            () -> service.verifyCode(email, "111111")
+        );
+
+        assertEquals(
+            ErrorCode.INVALID_FIND_ID_VERIFICATION_CODE,
+            exception.getErrorCode()
+        );
+        verify(verification).recordFailedAttempt();
+    }
+
+    @Test
+    void discardedCodeRejectsCorrectAnswerWithoutRecording() {
+        String email = "test@gmail.com";
+
+        FindIdVerification verification =
+            mock(FindIdVerification.class);
+
+        when(
+            verificationRepository
+                .findFirstByEmailIgnoreCaseOrderByIdDesc(email)
+        ).thenReturn(Optional.of(verification));
+        when(verification.isAttemptsExhausted()).thenReturn(true);
+
+        BusinessException exception = assertThrows(
+            BusinessException.class,
+            () -> service.verifyCode(email, "123456")
+        );
+
+        assertEquals(
+            ErrorCode.INVALID_FIND_ID_VERIFICATION_CODE,
+            exception.getErrorCode()
+        );
+        verify(verification, never()).recordFailedAttempt();
+        verifyNoInteractions(passwordEncoder, socialAccountRepository);
     }
 
     @Test
@@ -71,7 +187,7 @@ class FindIdVerificationServiceTest {
 
         when(
             verificationRepository
-                .findTopByEmailIgnoreCaseOrderByIdDesc(email)
+                .findFirstByEmailIgnoreCaseOrderByIdDesc(email)
         ).thenReturn(Optional.of(verification));
 
         when(verification.isVerified())
@@ -122,7 +238,7 @@ class FindIdVerificationServiceTest {
 
         when(
             verificationRepository
-                .findTopByEmailIgnoreCaseOrderByIdDesc(email)
+                .findFirstByEmailIgnoreCaseOrderByIdDesc(email)
         ).thenReturn(Optional.of(verification));
 
         when(verification.isVerified())
@@ -152,7 +268,7 @@ class FindIdVerificationServiceTest {
         );
 
         verify(verification)
-            .increaseAttemptCount();
+            .recordFailedAttempt();
 
         verifyNoInteractions(socialAccountRepository);
     }
@@ -166,7 +282,7 @@ class FindIdVerificationServiceTest {
 
         when(
             verificationRepository
-                .findTopByEmailIgnoreCaseOrderByIdDesc(email)
+                .findFirstByEmailIgnoreCaseOrderByIdDesc(email)
         ).thenReturn(Optional.of(verification));
 
         when(verification.isVerified())
@@ -184,7 +300,7 @@ class FindIdVerificationServiceTest {
         );
 
         assertEquals(
-            ErrorCode.EXPIRED_FIND_ID_VERIFICATION_CODE,
+            ErrorCode.INVALID_FIND_ID_VERIFICATION_CODE,
             exception.getErrorCode()
         );
 
@@ -203,7 +319,7 @@ class FindIdVerificationServiceTest {
 
         when(
             verificationRepository
-                .findTopByEmailIgnoreCaseOrderByIdDesc(email)
+                .findFirstByEmailIgnoreCaseOrderByIdDesc(email)
         ).thenReturn(Optional.of(verification));
 
         when(verification.isVerified())
@@ -252,7 +368,7 @@ class FindIdVerificationServiceTest {
 
         Instant before = Instant.now();
 
-        service.sendVerificationCode(inputEmail);
+        service.sendVerificationCode(inputEmail, CLIENT_IP);
 
         Instant after = Instant.now();
 
@@ -349,7 +465,7 @@ class FindIdVerificationServiceTest {
                 )
         ).thenReturn(Optional.empty());
 
-        service.sendVerificationCode(email);
+        service.sendVerificationCode(email, CLIENT_IP);
 
         verify(socialAccountRepository)
             .findByProviderAndProviderEmailIgnoreCase(

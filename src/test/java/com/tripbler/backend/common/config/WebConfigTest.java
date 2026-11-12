@@ -1,5 +1,7 @@
 package com.tripbler.backend.common.config;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -16,12 +18,18 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.HandlerExecutionChain;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+import org.springframework.web.util.ServletRequestPathUtils;
 
+import com.tripbler.backend.common.ratelimit.AuthRateLimitInterceptor;
 import com.tripbler.backend.common.security.CustomAccessDeniedHandler;
 import com.tripbler.backend.common.security.CustomAuthenticationEntryPoint;
 
@@ -33,7 +41,9 @@ import com.tripbler.backend.common.security.CustomAuthenticationEntryPoint;
     WebConfig.class,
     SecurityConfig.class,
     CustomAuthenticationEntryPoint.class,
-    CustomAccessDeniedHandler.class
+    CustomAccessDeniedHandler.class,
+    // 테스트 클래스 안의 클래스는 슬라이스 스캔에서 빠지므로 직접 등록한다.
+    WebConfigTest.TestController.class
 })
 @TestPropertySource(
     properties = {
@@ -49,6 +59,9 @@ class WebConfigTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private RequestMappingHandlerMapping requestMappingHandlerMapping;
 
     @MockitoBean
     private JwtDecoder jwtDecoder;
@@ -136,7 +149,33 @@ class WebConfigTest {
             );
     }
 
+    @Test
+    @DisplayName(
+        "별도 제한기 설정 없이 WebConfig만 불러와도 요청 제한 인터셉터가 붙는다"
+    )
+    void authRateLimitInterceptorIsAlwaysRegistered()
+        throws Exception {
+
+        MockHttpServletRequest request =
+            new MockHttpServletRequest("GET", "/test/ping");
+        ServletRequestPathUtils.parseAndCache(request);
+
+        HandlerExecutionChain chain =
+            requestMappingHandlerMapping.getHandler(request);
+
+        assertNotNull(chain);
+        assertTrue(
+            chain.getInterceptorList().stream()
+                .anyMatch(AuthRateLimitInterceptor.class::isInstance)
+        );
+    }
+
     @RestController
     static class TestController {
+
+        @GetMapping("/test/ping")
+        String ping() {
+            return "pong";
+        }
     }
 }

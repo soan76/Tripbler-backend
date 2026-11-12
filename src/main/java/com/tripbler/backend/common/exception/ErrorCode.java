@@ -10,6 +10,12 @@ public enum ErrorCode {
         "지원하지 않는 HTTP 메서드입니다."
     ),
 
+    TOO_MANY_REQUESTS(
+        HttpStatus.TOO_MANY_REQUESTS,
+        "TOO_MANY_REQUESTS",
+        "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."
+    ),
+
     INVALID_REQUEST(
         HttpStatus.BAD_REQUEST,
         "INVALID_REQUEST",
@@ -145,7 +151,7 @@ public enum ErrorCode {
     INVALID_FIND_ID_VERIFICATION_CODE(
         HttpStatus.BAD_REQUEST,
         "INVALID_FIND_ID_VERIFICATION_CODE",
-        "인증코드가 맞지 않습니다."
+        "인증코드가 올바르지 않거나 만료되었습니다. 새 인증코드를 요청해 주세요."
     ),
 
     INVALID_PROFILE_IMAGE(
@@ -160,22 +166,10 @@ public enum ErrorCode {
         "프로필 이미지 처리에 실패했습니다."
     ),
 
-    EXPIRED_FIND_ID_VERIFICATION_CODE(
-        HttpStatus.BAD_REQUEST,
-        "EXPIRED_FIND_ID_VERIFICATION_CODE",
-        "인증코드가 만료되었습니다. 다시 발급해 주세요."
-    ),
-
     INVALID_PASSWORD_RESET_VERIFICATION_CODE(
         HttpStatus.BAD_REQUEST,
         "INVALID_PASSWORD_RESET_VERIFICATION_CODE",
-        "인증코드가 맞지 않습니다."
-    ),
-
-    EXPIRED_PASSWORD_RESET_VERIFICATION_CODE(
-        HttpStatus.BAD_REQUEST,
-        "EXPIRED_PASSWORD_RESET_VERIFICATION_CODE",
-        "인증코드가 만료되었습니다. 다시 발급해 주세요."
+        "인증코드가 올바르지 않거나 만료되었습니다. 새 인증코드를 요청해 주세요."
     ),
 
     INVALID_PASSWORD_RESET_TOKEN(

@@ -26,6 +26,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 @RestController
@@ -66,10 +68,12 @@ public class AuthController {
     // 아이디 찾기용 이메일 인증코드를 발송한다.
     @PostMapping("/find-id/send-code")
     public ResponseEntity<Void> sendFindIdVerificationCode(
-        @Valid @RequestBody FindIdSendCodeRequest request
+        @Valid @RequestBody FindIdSendCodeRequest request,
+        HttpServletRequest httpRequest
     ) {
         findIdVerificationService.sendVerificationCode(
-            request.email()
+            request.email(),
+            httpRequest.getRemoteAddr()
         );
 
         return ResponseEntity.noContent().build();
@@ -91,11 +95,13 @@ public class AuthController {
     // 비밀번호 재설정용 인증코드를 발송한다.
     @PostMapping("/password-reset/send-code")
     public ResponseEntity<Void> sendPasswordResetVerificationCode(
-        @Valid @RequestBody PasswordResetSendCodeRequest request
+        @Valid @RequestBody PasswordResetSendCodeRequest request,
+        HttpServletRequest httpRequest
     ) {
         passwordResetVerificationService.sendVerificationCode(
             request.loginId(),
-            request.email()
+            request.email(),
+            httpRequest.getRemoteAddr()
         );
 
         return ResponseEntity.noContent().build();
