@@ -28,7 +28,7 @@ Google Places API (New)를 서버에서 호출해 장소 정보를 돌려준다.
 
 - `rating`, `openNow`는 값이 없으면 필드를 빼지 않고 `null`로 내려간다. 검색 API는 항상 `null`이다(아래 비용 참고).
 - `name`이 없으면 `"이름 없는 장소"`, `address`가 없으면 `"주소 정보 없음"`이다.
-- Google 응답에 위치가 없으면 `latitude`, `longitude`는 필드를 빼지 않고 `null`로 내려간다. 앱은 이 장소를 목록에는 표시하고 지도 마커와 카메라 범위 계산에서는 뺀다.
+- Google 응답에 위치가 없거나, 빈 `location {}`이거나, 위도·경도 중 하나만 있으면 `latitude`, `longitude`는 필드를 빼지 않고 둘 다 `null`로 내려간다. 앱은 이 장소를 목록에는 표시하고 지도 마커와 카메라 범위 계산에서는 뺀다.
 - `category`는 Google `primaryType` 값이다.
 
 ## 장소 검색
@@ -41,7 +41,7 @@ Google Places API (New)를 서버에서 호출해 장소 정보를 돌려준다.
 | `lat` | 아니오 | -90~90. `lng`와 함께 보내거나 둘 다 생략 |
 | `lng` | 아니오 | -180~180. `lat`와 함께 보내거나 둘 다 생략 |
 
-- 앞뒤에서 지우는 공백류: Java 공백(`Character.isWhitespace`), 유니코드 구분자(NBSP U+00A0, U+3000 등), 서식 문자(U+200B, U+FEFF 등). 가운데 문자는 그대로 둔다.
+- 앞뒤에서 지우는 공백류: Java 공백(`Character.isWhitespace`), 유니코드 구분자(NBSP U+00A0, U+3000 등), 서식 문자(U+200B, U+FEFF 등). 단, 태그 문자(U+E0020~U+E007F)는 지역 깃발 이모지(예: 스코틀랜드 깃발)의 일부라 지우지 않는다. 가운데 문자는 그대로 둔다.
 - 좌표가 있으면 그 지점 반경 **5000m** 안의 결과를 우선한다(`locationBias`). 결과를 이 범위로 제한하지는 않는다.
 - 좌표를 생략하면 Google이 요청 IP를 기준으로 결과를 우선한다(IP biasing, `locationBias`·`locationRestriction`이 모두 없을 때의 기본 동작). Tripbler에서는 백엔드가 Google을 호출하므로 사용자 기기가 아니라 **서버의 외부 IP**가 검색 순위에 영향을 줄 수 있다. 근거: [Text Search (New)](https://developers.google.com/maps/documentation/places/web-service/text-search)
 - 결과는 최대 20개이고, 없으면 `200 []`이다.
@@ -94,7 +94,7 @@ Google은 요청한 필드 중 가장 높은 등급으로 과금한다. `rating`
 | `type` | 아니오 | `tourist_attraction` | `tourist_attraction` 또는 `restaurant`. 빈 값이면 기본값 |
 | `radius` | 아니오 | `1500` | 1~50000(m) |
 
-- Google `places:searchNearby`를 `locationRestriction`(반경 안으로 제한), 최대 20개로 호출한다.
+- Google `places:searchNearby`를 `locationRestriction`(반경 안으로 제한), 최대 20개, `languageCode: "ko"`로 호출한다.
 - 응답: `200 List<PlaceResponse>`. 결과가 없으면 `[]`.
 
 ## 최근접 장소
@@ -114,7 +114,7 @@ Google은 요청한 필드 중 가장 높은 등급으로 과금한다. `rating`
 
 `GET /api/v1/places/{placeId}`
 
-- Google Place Details를 호출한다. 평점과 영업 여부를 포함한다(Enterprise 등급).
+- Google Place Details를 `languageCode=ko`로 호출한다. 평점과 영업 여부를 포함한다(Enterprise 등급). 검색·주변·최근접·상세 모두 한국어로 받아 이름·주소 언어가 섞이지 않는다.
 - 응답: `200 PlaceResponse`.
 
 ## 입력 검증
@@ -150,6 +150,8 @@ Google은 요청한 필드 중 가장 높은 등급으로 과금한다. `rating`
 ## 타임아웃
 
 Google 호출은 연결 2초, 읽기 5초 제한이 있다. 앱의 장소 요청 제한 시간(8초)보다 먼저 503으로 끝나도록 정한 값이다.
+
+- 읽기 제한은 응답 전체 시간이 아니라 데이터를 기다리는 구간마다 걸린다. Google 응답은 작아 보통 한 번에 오므로 대개 7초 안에 끝나지만, 응답이 조금씩 끊겨 오면 합계가 7초(드물게 앱의 8초)를 넘을 수 있다. 전체 시간을 강제하지 않기로 했다(2026-11-12).
 
 ## 앱 연동 시 확인할 것
 

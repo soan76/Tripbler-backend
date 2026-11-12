@@ -40,6 +40,10 @@ public class PlaceController {
 
     private static final int QUERY_MAX_LENGTH = 100;
 
+    // 유니코드 태그 문자 범위(지역 깃발 이모지에 쓰임). 검색어 앞뒤 정리에서 지우지 않는다.
+    private static final int TAG_CHARACTER_FIRST = 0xE0020;
+    private static final int TAG_CHARACTER_LAST = 0xE007F;
+
     private static final String QUERY_MESSAGE =
         "검색어는 공백을 제외하고 1~100자여야 합니다.";
 
@@ -187,9 +191,14 @@ public class PlaceController {
 
     // Java 공백(Character.isWhitespace), 유니코드 구분자(Z*: NBSP U+00A0, U+3000 등),
     // 서식 문자(Cf: U+200B, U+FEFF 등).
+    // 단, 태그 문자(U+E0020~U+E007F)는 지역 깃발 이모지(🏴 + 태그 + 태그 끝)의 일부라
+    // 서식 문자여도 지우지 않는다.
     private static boolean isQueryEdgeBlank(int codePoint) {
         if (Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint)) {
             return true;
+        }
+        if (codePoint >= TAG_CHARACTER_FIRST && codePoint <= TAG_CHARACTER_LAST) {
+            return false;
         }
         return Character.getType(codePoint) == Character.FORMAT;
     }

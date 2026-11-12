@@ -8,7 +8,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 public record GoogleNearbySearchRequest(
     List<String> includedTypes,
     int maxResultCount,
-    LocationRestriction locationRestriction
+    LocationRestriction locationRestriction,
+    String languageCode
 ) {
 
     public record LocationRestriction(

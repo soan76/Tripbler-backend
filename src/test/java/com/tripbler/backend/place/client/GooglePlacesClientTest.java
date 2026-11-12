@@ -169,6 +169,48 @@ class GooglePlacesClientTest {
     }
 
     @Test
+    void 빈_location_객체나_한쪽_좌표만_있으면_좌표를_null로_둔다() {
+        // 원시 double로 받으면 빈 location이 (0, 0)이 되어 대서양 한가운데 마커가 생긴다.
+        mockServer.expect(requestTo(SEARCH_TEXT_URL))
+            .andRespond(withSuccess(
+                """
+                {"places":[
+                  {"id":"empty","displayName":{"text":"빈 위치"},"location":{}},
+                  {"id":"half","displayName":{"text":"반쪽 위치"},"location":{"latitude":37.5}}]}
+                """,
+                MediaType.APPLICATION_JSON
+            ));
+
+        var places = client.searchText("경복궁", null, null);
+
+        assertEquals(2, places.size());
+        for (var place : places) {
+            assertNull(place.latitude());
+            assertNull(place.longitude());
+        }
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 최근접은_빈_location_객체_후보를_제외한다() {
+        mockServer.expect(requestTo(NEARBY_URL))
+            .andRespond(withSuccess(
+                """
+                {"places":[
+                  {"id":"empty","displayName":{"text":"빈 위치"},"location":{}},
+                  {"id":"far","displayName":{"text":"먼 곳"},
+                   "location":{"latitude":37.5700,"longitude":126.9800}}]}
+                """,
+                MediaType.APPLICATION_JSON
+            ));
+
+        assertEquals("far", client.findNearestPlace(37.5665, 126.9780, 1000).id());
+
+        mockServer.verify();
+    }
+
+    @Test
     void 최근접_후보가_모두_좌표가_없으면_null을_반환한다() {
         String body = """
             {"places":[{"id":"no-location","displayName":{"text":"위치 없음"}}]}
@@ -200,6 +242,47 @@ class GooglePlacesClientTest {
             ErrorCode.PLACES_PROVIDER_UNAVAILABLE,
             exception.getErrorCode()
         );
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 상세_조회는_한국어_결과를_요청한다() {
+        // 검색과 같은 언어로 받아야 이름·주소가 영어로 바뀌지 않는다.
+        mockServer.expect(requestTo(BASE_URL + "/v1/places/some-id?languageCode=ko"))
+            .andExpect(method(HttpMethod.GET))
+            .andRespond(withSuccess(
+                """
+                {"id":"some-id","displayName":{"text":"경복궁","languageCode":"ko"}}
+                """,
+                MediaType.APPLICATION_JSON
+            ));
+
+        assertEquals("경복궁", client.getPlaceDetails("some-id").name());
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 주변_검색은_한국어_결과를_요청한다() {
+        mockServer.expect(requestTo(NEARBY_URL))
+            .andExpect(method(HttpMethod.POST))
+            .andExpect(jsonPath("$.languageCode").value("ko"))
+            .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        client.searchNearby(37.5665, 126.9780, "tourist_attraction", 1000);
+
+        mockServer.verify();
+    }
+
+    @Test
+    void 최근접_조회도_한국어_결과를_요청한다() {
+        mockServer.expect(requestTo(NEARBY_URL))
+            .andExpect(method(HttpMethod.POST))
+            .andExpect(jsonPath("$.languageCode").value("ko"))
+            .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        client.findNearestPlace(37.5665, 126.9780, 40);
 
         mockServer.verify();
     }
@@ -283,7 +366,7 @@ class GooglePlacesClientTest {
 
     @Test
     void 상세_조회에서_Google_404면_404_예외를_던진다() {
-        mockServer.expect(requestTo(BASE_URL + "/v1/places/unknown-id"))
+        mockServer.expect(requestTo(BASE_URL + "/v1/places/unknown-id?languageCode=ko"))
             .andExpect(method(HttpMethod.GET))
             .andRespond(withResourceNotFound());
 
@@ -302,7 +385,7 @@ class GooglePlacesClientTest {
 
     @Test
     void 상세_조회에서_Google_400이면_400_예외를_던진다() {
-        mockServer.expect(requestTo(BASE_URL + "/v1/places/bad-id"))
+        mockServer.expect(requestTo(BASE_URL + "/v1/places/bad-id?languageCode=ko"))
             .andExpect(method(HttpMethod.GET))
             .andRespond(withStatus(HttpStatus.BAD_REQUEST));
 
@@ -321,7 +404,7 @@ class GooglePlacesClientTest {
 
     @Test
     void 상세_조회가_시간_초과되면_503_예외를_던진다() {
-        mockServer.expect(requestTo(BASE_URL + "/v1/places/some-id"))
+        mockServer.expect(requestTo(BASE_URL + "/v1/places/some-id?languageCode=ko"))
             .andExpect(method(HttpMethod.GET))
             .andRespond(
                 withException(
@@ -341,7 +424,7 @@ class GooglePlacesClientTest {
     void 상세_조회에서_Google_400이_API_키_오류면_503_예외를_던진다() {
         // Google은 잘못된 키도 400(INVALID_ARGUMENT)으로 응답한다.
         // 사용자 입력 오류가 아닌 서버 설정 문제이므로 503이어야 한다.
-        mockServer.expect(requestTo(BASE_URL + "/v1/places/some-id"))
+        mockServer.expect(requestTo(BASE_URL + "/v1/places/some-id?languageCode=ko"))
             .andExpect(method(HttpMethod.GET))
             .andRespond(
                 withStatus(HttpStatus.BAD_REQUEST)
@@ -372,7 +455,7 @@ class GooglePlacesClientTest {
                 "fieldViolations":[{"field":"name"}]}]}}
             """;
 
-        mockServer.expect(requestTo(BASE_URL + "/v1/places/bad-id"))
+        mockServer.expect(requestTo(BASE_URL + "/v1/places/bad-id?languageCode=ko"))
             .andExpect(method(HttpMethod.GET))
             .andRespond(
                 withStatus(HttpStatus.BAD_REQUEST)
@@ -396,7 +479,7 @@ class GooglePlacesClientTest {
     @Test
     void 상세_조회에서_Google_400_본문이_JSON이_아니면_400_예외를_던진다() {
         // 본문 해석 실패가 다른 예외로 새지 않고 일반 400으로 처리되어야 한다.
-        mockServer.expect(requestTo(BASE_URL + "/v1/places/bad-id"))
+        mockServer.expect(requestTo(BASE_URL + "/v1/places/bad-id?languageCode=ko"))
             .andExpect(method(HttpMethod.GET))
             .andRespond(
                 withStatus(HttpStatus.BAD_REQUEST)

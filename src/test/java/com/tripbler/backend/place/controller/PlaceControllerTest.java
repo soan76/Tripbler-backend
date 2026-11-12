@@ -634,6 +634,29 @@ class PlaceControllerTest {
     }
 
     @Test
+    void 검색어_끝의_지역_깃발_이모지는_태그_문자까지_그대로_전달한다() throws Exception {
+        // 스코틀랜드 깃발: 검은 깃발 + 태그 문자(g b s c t) + 태그 끝(U+E007F).
+        // 태그 문자는 서식 문자(Cf)라 공백처럼 지우면 깃발이 깨진다.
+        String scotland = new String(
+            new int[] {0x1F3F4, 0xE0067, 0xE0062, 0xE0073, 0xE0063, 0xE0074, 0xE007F},
+            0,
+            7
+        );
+        String query = "에든버러 " + scotland;
+
+        when(placeService.searchText(query, null, null)).thenReturn(List.of());
+
+        mockMvc.perform(
+                get("/api/v1/places/search")
+                    .with(jwt())
+                    .param("query", "​" + query + " ")
+            )
+            .andExpect(status().isOk());
+
+        verify(placeService).searchText(query, null, null);
+    }
+
+    @Test
     void 검색어가_101자면_400을_반환한다() throws Exception {
         mockMvc.perform(
                 get("/api/v1/places/search")

@@ -57,7 +57,8 @@ public class GooglePlacesClient implements PlaceClient {
 
     private static final int SEARCH_PAGE_SIZE = 20;
 
-    private static final String SEARCH_LANGUAGE_CODE = "ko";
+    // 검색·주변·최근접·상세 모두 같은 언어로 받아야 이름·주소가 섞이지 않는다.
+    private static final String PLACE_LANGUAGE_CODE = "ko";
 
     private static final Logger log =
         LoggerFactory.getLogger(GooglePlacesClient.class);
@@ -78,8 +79,9 @@ public class GooglePlacesClient implements PlaceClient {
             "SERVICE_DISABLED"
         );
 
-    // 앱의 장소 요청 제한 시간(8초)보다 먼저 끝나도록
-    // 연결 + 읽기 합계를 7초로 둔다.
+    // 앱의 장소 요청 제한 시간(8초)보다 먼저 끝나도록 연결 2초, 읽기 5초로 둔다.
+    // 읽기 제한은 응답 전체가 아니라 데이터를 기다리는 구간마다 걸린다.
+    // Google 응답은 작아 보통 한 번에 오므로 대개 7초 안에 끝나지만, 합계 상한은 아니다.
     // 테스트에서 값을 확인할 수 있도록 package-private으로 둔다.
     static final Duration CONNECT_TIMEOUT =
         Duration.ofSeconds(2);
@@ -239,7 +241,8 @@ public class GooglePlacesClient implements PlaceClient {
         return new GoogleNearbySearchRequest(
             null,
             20,
-            restriction
+            restriction,
+            PLACE_LANGUAGE_CODE
         );
     }
 
@@ -285,9 +288,10 @@ public class GooglePlacesClient implements PlaceClient {
             GoogleNearbySearchResponse.GooglePlace place =
                 restClient
                     .get()
-                    .uri(
-                        "/v1/places/{placeId}",
-                        placeId
+                    .uri(uriBuilder -> uriBuilder
+                        .path("/v1/places/{placeId}")
+                        .queryParam("languageCode", PLACE_LANGUAGE_CODE)
+                        .build(placeId)
                     )
                     .header(
                         "X-Goog-Api-Key",
@@ -345,7 +349,7 @@ public class GooglePlacesClient implements PlaceClient {
         GoogleTextSearchRequest request =
             new GoogleTextSearchRequest(
                 query,
-                SEARCH_LANGUAGE_CODE,
+                PLACE_LANGUAGE_CODE,
                 SEARCH_PAGE_SIZE,
                 locationBias
             );
@@ -510,7 +514,8 @@ public class GooglePlacesClient implements PlaceClient {
         return new GoogleNearbySearchRequest(
             List.of(type),
             20,
-            restriction
+            restriction,
+            PLACE_LANGUAGE_CODE
         );
     }
 
@@ -553,17 +558,16 @@ public class GooglePlacesClient implements PlaceClient {
                 ? place.displayName().text()
                 : "이름 없는 장소";
 
-        // 위치가 없으면 좌표를 null로 둔다.
+        // 위치가 없거나 위도·경도 중 하나라도 비면 둘 다 null로 둔다.
         // 앱은 목록에는 표시하고 지도 마커와 카메라 범위에서는 뺀다.
-        Double latitude =
-            place.location() != null
-                ? place.location().latitude()
-                : null;
+        GoogleNearbySearchResponse.Location location = place.location();
+        boolean hasCoordinates =
+            location != null
+                && location.latitude() != null
+                && location.longitude() != null;
 
-        Double longitude =
-            place.location() != null
-                ? place.location().longitude()
-                : null;
+        Double latitude = hasCoordinates ? location.latitude() : null;
+        Double longitude = hasCoordinates ? location.longitude() : null;
 
         String address =
             place.formattedAddress() != null
