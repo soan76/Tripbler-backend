@@ -34,7 +34,8 @@ public class GlobalExceptionHandler {
     ) {
         ErrorCode errorCode = exception.getErrorCode();
 
-        log.warn(
+        // 공격 중에는 429가 대량으로 나므로 요청마다 남기는 로그는 DEBUG로 둔다.
+        log.debug(
             "Rate limited: path={}, retryAfter={}",
             request.getRequestURI(),
             exception.getRetryAfterSeconds()

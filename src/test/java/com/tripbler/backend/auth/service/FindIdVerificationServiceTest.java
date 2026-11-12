@@ -31,6 +31,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,11 +53,15 @@ class FindIdVerificationServiceTest {
     private AuthRateLimiter authRateLimiter;
 
     private static final String CLIENT_IP = "10.0.0.1";
+    private static final String DUMMY_HASH = "dummy-hash";
 
     private FindIdVerificationService service;
 
     @BeforeEach
     void setUp() {
+        // 서비스 생성 때 시간 맞춤용 더미 해시를 한 번 만든다.
+        when(passwordEncoder.encode(anyString())).thenReturn(DUMMY_HASH);
+
         service = new FindIdVerificationService(
             verificationRepository,
             socialAccountRepository,
@@ -65,6 +70,7 @@ class FindIdVerificationServiceTest {
             mock(PlatformTransactionManager.class),
             authRateLimiter
         );
+        clearInvocations(passwordEncoder);
     }
 
     @Test
@@ -169,7 +175,10 @@ class FindIdVerificationServiceTest {
             exception.getErrorCode()
         );
         verify(verification, never()).recordFailedAttempt();
-        verifyNoInteractions(passwordEncoder, socialAccountRepository);
+        // 실패 분기도 더미 해시로 비교를 정확히 한 번 거친다.
+        verify(passwordEncoder).matches("123456", DUMMY_HASH);
+        verify(passwordEncoder, times(1)).matches(anyString(), anyString());
+        verifyNoInteractions(socialAccountRepository);
     }
 
     @Test
@@ -270,6 +279,8 @@ class FindIdVerificationServiceTest {
         verify(verification)
             .recordFailedAttempt();
 
+        verify(passwordEncoder, times(1)).matches(anyString(), anyString());
+        verify(passwordEncoder, never()).matches(anyString(), eq(DUMMY_HASH));
         verifyNoInteractions(socialAccountRepository);
     }
 
@@ -304,10 +315,10 @@ class FindIdVerificationServiceTest {
             exception.getErrorCode()
         );
 
-        verifyNoInteractions(
-            passwordEncoder,
-            socialAccountRepository
-        );
+        // 실패 분기도 더미 해시로 비교를 정확히 한 번 거친다.
+        verify(passwordEncoder).matches("123456", DUMMY_HASH);
+        verify(passwordEncoder, times(1)).matches(anyString(), anyString());
+        verifyNoInteractions(socialAccountRepository);
     }
 
     @Test
@@ -338,10 +349,35 @@ class FindIdVerificationServiceTest {
             exception.getErrorCode()
         );
 
-        verifyNoInteractions(
-            passwordEncoder,
-            socialAccountRepository
+        // 실패 분기도 더미 해시로 비교를 정확히 한 번 거친다.
+        verify(passwordEncoder).matches("123456", DUMMY_HASH);
+        verify(passwordEncoder, times(1)).matches(anyString(), anyString());
+        verifyNoInteractions(socialAccountRepository);
+    }
+
+    @Test
+    void verifyCodeFailsWhenRecordIsMissing() {
+        String email = "test@gmail.com";
+
+        when(
+            verificationRepository
+                .findFirstByEmailIgnoreCaseOrderByIdDesc(email)
+        ).thenReturn(Optional.empty());
+
+        BusinessException exception = assertThrows(
+            BusinessException.class,
+            () -> service.verifyCode(email, "123456")
         );
+
+        assertEquals(
+            ErrorCode.INVALID_FIND_ID_VERIFICATION_CODE,
+            exception.getErrorCode()
+        );
+
+        // 실패 분기도 더미 해시로 비교를 정확히 한 번 거친다.
+        verify(passwordEncoder).matches("123456", DUMMY_HASH);
+        verify(passwordEncoder, times(1)).matches(anyString(), anyString());
+        verifyNoInteractions(socialAccountRepository);
     }
 
     @Test

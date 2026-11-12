@@ -31,6 +31,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -55,11 +56,15 @@ class PasswordResetVerificationServiceTest {
     private AuthRateLimiter authRateLimiter;
 
     private static final String CLIENT_IP = "10.0.0.1";
+    private static final String DUMMY_HASH = "dummy-hash";
 
     private PasswordResetVerificationService service;
 
     @BeforeEach
     void setUp() {
+        // 서비스 생성 때 시간 맞춤용 더미 해시를 한 번 만든다.
+        when(passwordEncoder.encode(anyString())).thenReturn(DUMMY_HASH);
+
         service = new PasswordResetVerificationService(
             verificationRepository,
             socialAccountRepository,
@@ -69,6 +74,7 @@ class PasswordResetVerificationServiceTest {
             mock(PlatformTransactionManager.class),
             authRateLimiter
         );
+        clearInvocations(passwordEncoder);
     }
 
     @Test
@@ -183,7 +189,39 @@ class PasswordResetVerificationServiceTest {
             exception.getErrorCode()
         );
         verify(verification, never()).recordFailedAttempt();
-        verifyNoInteractions(passwordEncoder, socialAccountRepository, resetTokenService);
+        // 실패 분기도 더미 해시로 비교를 정확히 한 번 거친다.
+        verify(passwordEncoder).matches("123456", DUMMY_HASH);
+        verify(passwordEncoder, times(1)).matches(anyString(), anyString());
+        verifyNoInteractions(socialAccountRepository, resetTokenService);
+    }
+
+    @Test
+    void verifyCodeFailsWhenRecordIsMissing() {
+        String loginId = "testuser";
+        String email = "test@gmail.com";
+
+        when(
+            verificationRepository
+                .findFirstByLoginIdIgnoreCaseAndEmailIgnoreCaseOrderByIdDesc(
+                    loginId,
+                    email
+                )
+        ).thenReturn(Optional.empty());
+
+        BusinessException exception = assertThrows(
+            BusinessException.class,
+            () -> service.verifyCode(loginId, email, "123456")
+        );
+
+        assertEquals(
+            ErrorCode.INVALID_PASSWORD_RESET_VERIFICATION_CODE,
+            exception.getErrorCode()
+        );
+
+        // 실패 분기도 더미 해시로 비교를 정확히 한 번 거친다.
+        verify(passwordEncoder).matches("123456", DUMMY_HASH);
+        verify(passwordEncoder, times(1)).matches(anyString(), anyString());
+        verifyNoInteractions(socialAccountRepository, resetTokenService);
     }
 
     @Test
@@ -496,6 +534,8 @@ class PasswordResetVerificationServiceTest {
         verify(verification)
             .recordFailedAttempt();
 
+        verify(passwordEncoder, times(1)).matches(anyString(), anyString());
+        verify(passwordEncoder, never()).matches(anyString(), eq(DUMMY_HASH));
         verifyNoInteractions(
             socialAccountRepository,
             resetTokenService
@@ -539,11 +579,10 @@ class PasswordResetVerificationServiceTest {
             exception.getErrorCode()
         );
 
-        verifyNoInteractions(
-            passwordEncoder,
-            socialAccountRepository,
-            resetTokenService
-        );
+        // 실패 분기도 더미 해시로 비교를 정확히 한 번 거친다.
+        verify(passwordEncoder).matches("123456", DUMMY_HASH);
+        verify(passwordEncoder, times(1)).matches(anyString(), anyString());
+        verifyNoInteractions(socialAccountRepository, resetTokenService);
     }
 
     @Test
@@ -580,10 +619,9 @@ class PasswordResetVerificationServiceTest {
             exception.getErrorCode()
         );
 
-        verifyNoInteractions(
-            passwordEncoder,
-            socialAccountRepository,
-            resetTokenService
-        );
+        // 실패 분기도 더미 해시로 비교를 정확히 한 번 거친다.
+        verify(passwordEncoder).matches("123456", DUMMY_HASH);
+        verify(passwordEncoder, times(1)).matches(anyString(), anyString());
+        verifyNoInteractions(socialAccountRepository, resetTokenService);
     }
 }

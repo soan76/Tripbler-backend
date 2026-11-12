@@ -42,6 +42,11 @@ public class FindIdVerificationService {
     private final TransactionTemplate transactionTemplate;
     private final AuthRateLimiter authRateLimiter;
 
+    // 실패 분기마다 비교할 더미 해시. 서비스 생성 때 한 번만 만든다.
+    // 레코드 없음·사용·만료·폐기도 오답처럼 해시 비교를 한 번 거쳐야
+    // 처리 시간 차이로 레코드 유무가 드러나지 않는다.
+    private final String dummyCodeHash;
+
     private final SecureRandom secureRandom = new SecureRandom();
 
     public FindIdVerificationService(
@@ -56,6 +61,7 @@ public class FindIdVerificationService {
         this.socialAccountRepository = socialAccountRepository;
         this.emailService = emailService;
         this.passwordEncoder = passwordEncoder;
+        this.dummyCodeHash = passwordEncoder.encode("000000");
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.authRateLimiter = authRateLimiter;
     }
@@ -153,29 +159,21 @@ public class FindIdVerificationService {
             .findFirstByEmailIgnoreCaseOrderByIdDesc(email);
 
         if (found.isEmpty()) {
-            return VerifyOutcome.failure(
-                ErrorCode.INVALID_FIND_ID_VERIFICATION_CODE
-            );
+            return rejectAfterDummyComparison(code);
         }
 
         FindIdVerification verification = found.get();
 
         if (verification.isVerified()) {
-            return VerifyOutcome.failure(
-                ErrorCode.INVALID_FIND_ID_VERIFICATION_CODE
-            );
+            return rejectAfterDummyComparison(code);
         }
 
         if (verification.isExpired()) {
-            return VerifyOutcome.failure(
-                ErrorCode.INVALID_FIND_ID_VERIFICATION_CODE
-            );
+            return rejectAfterDummyComparison(code);
         }
 
         if (verification.isAttemptsExhausted()) {
-            return VerifyOutcome.failure(
-                ErrorCode.INVALID_FIND_ID_VERIFICATION_CODE
-            );
+            return rejectAfterDummyComparison(code);
         }
 
         if (!passwordEncoder.matches(
@@ -208,6 +206,16 @@ public class FindIdVerificationService {
             socialAccount.get()
                 .getUser()
                 .getLoginId()
+        );
+    }
+
+    // 실제 코드 해시 대신 더미 해시로 비교를 한 번 하고 같은 실패를 돌려준다.
+    // 결과는 쓰지 않지만 비교 비용을 오답 경로와 맞추려고 일반 호출로 둔다.
+    private VerifyOutcome rejectAfterDummyComparison(String code) {
+        passwordEncoder.matches(code, dummyCodeHash);
+
+        return VerifyOutcome.failure(
+            ErrorCode.INVALID_FIND_ID_VERIFICATION_CODE
         );
     }
 

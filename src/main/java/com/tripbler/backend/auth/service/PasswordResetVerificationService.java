@@ -43,6 +43,11 @@ public class PasswordResetVerificationService {
     private final TransactionTemplate transactionTemplate;
     private final AuthRateLimiter authRateLimiter;
 
+    // 실패 분기마다 비교할 더미 해시. 서비스 생성 때 한 번만 만든다.
+    // 레코드 없음·사용·만료·폐기도 오답처럼 해시 비교를 한 번 거쳐야
+    // 처리 시간 차이로 레코드 유무가 드러나지 않는다.
+    private final String dummyCodeHash;
+
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PasswordResetVerificationService(
@@ -58,6 +63,7 @@ public class PasswordResetVerificationService {
         this.socialAccountRepository = socialAccountRepository;
         this.emailService = emailService;
         this.passwordEncoder = passwordEncoder;
+        this.dummyCodeHash = passwordEncoder.encode("000000");
         this.resetTokenService = resetTokenService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.authRateLimiter = authRateLimiter;
@@ -186,32 +192,24 @@ public class PasswordResetVerificationService {
                 );
 
         if (found.isEmpty()) {
-            return VerifyOutcome.failure(
-                ErrorCode.INVALID_PASSWORD_RESET_VERIFICATION_CODE
-            );
+            return rejectAfterDummyComparison(code);
         }
 
         PasswordResetVerification verification = found.get();
 
         // 이미 사용한 인증코드는 다시 사용할 수 없다.
         if (verification.isVerified()) {
-            return VerifyOutcome.failure(
-                ErrorCode.INVALID_PASSWORD_RESET_VERIFICATION_CODE
-            );
+            return rejectAfterDummyComparison(code);
         }
 
         // 인증코드 만료 확인
         if (verification.isExpired()) {
-            return VerifyOutcome.failure(
-                ErrorCode.INVALID_PASSWORD_RESET_VERIFICATION_CODE
-            );
+            return rejectAfterDummyComparison(code);
         }
 
         // 오답 상한에 도달해 폐기된 코드는 정답이어도 쓸 수 없다.
         if (verification.isAttemptsExhausted()) {
-            return VerifyOutcome.failure(
-                ErrorCode.INVALID_PASSWORD_RESET_VERIFICATION_CODE
-            );
+            return rejectAfterDummyComparison(code);
         }
 
         // 입력 코드와 DB에 저장된 해시 비교
@@ -255,6 +253,16 @@ public class PasswordResetVerificationService {
 
         return VerifyOutcome.success(
             resetTokenService.createResetToken(userId)
+        );
+    }
+
+    // 실제 코드 해시 대신 더미 해시로 비교를 한 번 하고 같은 실패를 돌려준다.
+    // 결과는 쓰지 않지만 비교 비용을 오답 경로와 맞추려고 일반 호출로 둔다.
+    private VerifyOutcome rejectAfterDummyComparison(String code) {
+        passwordEncoder.matches(code, dummyCodeHash);
+
+        return VerifyOutcome.failure(
+            ErrorCode.INVALID_PASSWORD_RESET_VERIFICATION_CODE
         );
     }
 
